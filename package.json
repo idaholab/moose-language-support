@@ -1,8 +1,14 @@
 {
 	"name": "moose-language-support",
+	"author": "Daniel Schwen",
+	"license": "LGPL",
 	"displayName": "MOOSE Language Support",
 	"description": "Assists in writing MOOSE input files and code",
 	"version": "0.0.1",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/idaholab/moose-language-support"
+	},
 	"engines": {
 		"vscode": "^1.68.0"
 	},

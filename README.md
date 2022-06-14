@@ -1,16 +1,27 @@
 # moose-language-support README
 
-This is the README for your extension "moose-language-support". After writing up a brief description, we recommend including the following sections.
-
+This extension is a port of the `language-moose` and `autocomplete-moose`  
 ## Features
+Add syntax highlighting and snippets to MOOSE input files in Atom.
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+![screenshot](http://i.imgur.com/57fmKBz.png)
 
-For example if there is an image subfolder under your extension project workspace:
+Syntax highlighting for:
+* Valid top level blocks
+* Valid sublevel blocks
+* Special highlight for the ```type = TypeName``` lines
+* Highlight valid Function Parser functions in parameter strings
+* Highlight valid parameters for shape function family/order and element type
+* Numbers and constrants (true/false)
 
-\!\[feature X\]\(images/feature-x.png\)
+## MOOSE
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+MOOSE is an opensource multiphysics finite element simulation framework, developed ad Idaho National Laboratory.
+
+Check out the [MOOSE Framework website](http://mooseframework.org) for more information.
+
+Contributions are greatly appreciated. Please fork this repository and open a
+pull request to add snippets, make grammar tweaks, etc.
 
 ## Requirements
 
