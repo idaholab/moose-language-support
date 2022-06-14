@@ -1,0 +1,12 @@
+{
+  "MOOSE transfer header": {
+    "prefix": "transfer-h",
+    "body": "#pragma once\n\n#include \"Transfer.h\"\n\n/**\n *\n */\nclass ${1} : public Transfer\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\n  virtual void execute() override;\n};",
+    "description": "MOOSE transfer header"
+  },
+  "MOOSE transfer implementation": {
+    "prefix": "transfer-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = Transfer::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : Transfer(parameters)\n{\n}\n\nvoid\n${1}::execute()\n{\n}",
+    "description": "MOOSE transfer implementation"
+  }
+}

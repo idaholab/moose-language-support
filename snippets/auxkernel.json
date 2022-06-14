@@ -1,0 +1,12 @@
+{
+  "MOOSE auxiliary kernel": {
+    "prefix": "auxkernel-h",
+    "body": "#pragma once\n\n#include \"AuxKernel.h\"\n\n/**\n *\n */\nclass ${1} : public AuxKernel\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  virtual Real computeValue() override;\n};",
+    "description": "MOOSE auxiliary kernel"
+  },
+  "MOOSE auxiliary kernel implementation": {
+    "prefix": "auxkernel-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = AuxKernel::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : AuxKernel(parameters)\n{\n}\n\nReal\n${1}::computeValue()\n{\n  return 0.0;\n}",
+    "description": "MOOSE auxiliary kernel implementation"
+  }
+}

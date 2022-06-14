@@ -1,0 +1,12 @@
+{
+  "MOOSE function header": {
+    "prefix": "function-h",
+    "body": "#pragma once\n\n#include \"Function.h\"\n\n/**\n *\n */\nclass ${1} : public Function\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\n  virtual Real value(Real t, const Point & p) override;\n};",
+    "description": "MOOSE function header"
+  },
+  "MOOSE function implementation": {
+    "prefix": "function-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = Function::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : Function(parameters)\n{\n}\n\nReal\n${1}::value(Real t, const Point & p)\n{\n}",
+    "description": "MOOSE function implementation"
+  }
+}

@@ -1,0 +1,176 @@
+{
+	"name": "moose-language-support",
+	"displayName": "MOOSE Language Support",
+	"description": "Assists in writing MOOSE input files and code",
+	"version": "0.0.1",
+	"engines": {
+		"vscode": "^1.68.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onCommand:moose-language-support.helloWorld"
+	],
+	"main": "./extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "moose-language-support.helloWorld",
+				"title": "Hello World"
+			}
+		],
+		"languages": [
+			{
+				"id": "moose",
+				"extensions": [
+					".i"
+				]
+			},
+			{
+				"id": "moose-test-spec",
+				"extensions": [
+					"tests"
+				]
+			}
+		],
+		"grammars": [
+			{
+				"language": "moose",
+				"scopeName": "input.moose",
+				"path": "./grammars/moose.json"
+			},
+			{
+				"language": "moose-test-spec",
+				"scopeName": "tests.moose",
+				"path": "./grammars/moose-test-spec.json"
+			}
+		],
+		"snippets": [
+			{
+				"language": "moose",
+				"path": "./snippets/action.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/adkernel.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/auxkernel.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/bc.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/constraint.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/control.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/damper.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/dgkernel.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/dirackernel.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/function.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/ic.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/indicator.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/interfacekernel.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/kernel.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/marker.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/material.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/mesh.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/meshmodifier.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/multiapp.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/nodalkernel.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/pps.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/predictor.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/timeintegrator.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/timestepper.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/transfer.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/userobjects.json"
+			},
+			{
+				"language": "moose",
+				"path": "./snippets/vectorpps.json"
+			}
+		]
+	},
+	"scripts": {
+		"lint": "eslint .",
+		"pretest": "npm run lint",
+		"test": "node ./test/runTest.js"
+	},
+	"devDependencies": {
+		"@types/vscode": "^1.68.0",
+		"@types/glob": "^7.2.0",
+		"@types/mocha": "^9.1.1",
+		"@types/node": "16.x",
+		"eslint": "^8.16.0",
+		"glob": "^8.0.3",
+		"mocha": "^10.0.0",
+		"typescript": "^4.7.2",
+		"@vscode/test-electron": "^2.1.3"
+	}
+}

@@ -1,0 +1,22 @@
+{
+  "MOOSE kernel header": {
+    "prefix": "kernel-h",
+    "body": "#pragma once\n\n#include \"Kernel.h\"\n\n/**\n *\n */\nclass ${1} : public Kernel\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  virtual Real computeQpResidual() override;\n  virtual Real computeQpJacobian() override;\n};",
+    "description": "MOOSE kernel header"
+  },
+  "MOOSE kernel implementation": {
+    "prefix": "kernel-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = Kernel::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : Kernel(parameters)\n{\n}\n\nReal\n${1}::computeQpResidual()\n{\n}\n\nReal\n${1}::computeQpJacobian()\n{\n  return 0;\n}",
+    "description": "MOOSE kernel implementation"
+  },
+  "MOOSE vectorkernel header": {
+    "prefix": "vectorkernel-h",
+    "body": "#pragma once\n\n#include \"VectorKernel.h\"\n\nclass ${1};\n\nInputParameters\n${1}::validParams();\n\n/**\n *\n */\nclass ${1} : public VectorKernel\n{\npublic:\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  virtual Real computeQpResidual() override;\n  virtual Real computeQpJacobian() override;\n};",
+    "description": "MOOSE vectorkernel header"
+  },
+  "MOOSE vectorkernel implementation": {
+    "prefix": "vectorkernel-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = VectorKernel::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : VectorKernel(parameters)\n{\n}\n\nReal\n${1}::computeQpResidual()\n{\n}\n\nReal\n${1}::computeQpJacobian()\n{\n  return 0;\n}",
+    "description": "MOOSE vectorkernel implementation"
+  }
+}

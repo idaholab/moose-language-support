@@ -1,0 +1,12 @@
+{
+  "MOOSE control header": {
+    "prefix": "control-h",
+    "body": "#pragma once\n\n#include \"Control.h\"\n\n/**\n *\n */\nclass ${1} : public Control\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\n  virtual void execute() override;\n};",
+    "description": "MOOSE control header"
+  },
+  "MOOSE constrol implementation": {
+    "prefix": "control-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = Control::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : Control(parameters)\n{\n}\n\nvoid\n${1}::execute()\n{\n}",
+    "description": "MOOSE constrol implementation"
+  }
+}

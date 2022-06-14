@@ -1,0 +1,12 @@
+{
+  "MOOSE nodal kernel header": {
+    "prefix": "nodalkernel-h",
+    "body": "#pragma once\n\n#include \"NodalKernel.h\"\n\n/**\n *\n */\nclass ${1} : public NodalKernel\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  virtual Real computeQpResidual() override;\n};",
+    "description": "MOOSE nodal kernel header"
+  },
+  "MOOSE nodal kernel implementation": {
+    "prefix": "nodalkernel-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = NodalKernel::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : NodalKernel(parameters)\n{\n}\n\nReal\n${1}::computeQpResidual()\n{\n}",
+    "description": "MOOSE nodal kernel implementation"
+  }
+}

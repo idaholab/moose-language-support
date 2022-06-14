@@ -1,0 +1,12 @@
+{
+  "MOOSE damper header": {
+    "prefix": "damper-h",
+    "body": "#pragma once\n\n#include \"Damper.h\"\n\n/**\n *\n */\nclass ${1} : public Damper\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  virtual Real computeQpDamping() override;\n};",
+    "description": "MOOSE damper header"
+  },
+  "MOOSE damper implementation": {
+    "prefix": "damper-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = Damper::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : Damper(parameters)\n{\n}\n\nReal\n${1}::computeQpDamping()\n{\n}",
+    "description": "MOOSE damper implementation"
+  }
+}

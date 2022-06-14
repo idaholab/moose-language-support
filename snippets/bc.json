@@ -1,0 +1,22 @@
+{
+  "MOOSE nodal boundary condition header": {
+    "prefix": "nodalbc-h",
+    "body": "#pragma once\n\n#include \"NodalBC.h\"\n\n/**\n *\n */\nclass ${1} : public NodalBC\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  virtual Real computeQpResidual() override;\n};",
+    "description": "MOOSE nodal boundary condition header"
+  },
+  "MOOSE integrated boundary condition header": {
+    "prefix": "integratedbc-h",
+    "body": "#pragma once\n\n#include \"IntegratedBC.h\"\n\nclass ${1};\n\nInputParameters\n${1}::validParams();\n\n/**\n *\n */\nclass ${1} : public IntegratedBC\n{\npublic:\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  virtual Real computeQpResidual();\n  virtual Real computeQpJacobian();\n};",
+    "description": "MOOSE integrated boundary condition header"
+  },
+  "MOOSE nodal boundary condition implementation": {
+    "prefix": "nodalbc-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = NodalBC::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : NodalBC(parameters)\n{\n}\n\nReal\n${1}::computeQpResidual()\n{\n}",
+    "description": "MOOSE nodal boundary condition implementation"
+  },
+  "MOOSE integrated boundary condition implementation": {
+    "prefix": "integratedbc-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = IntegratedBC::validParams();\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : IntegratedBC(parameters)\n{\n}\n\nReal\n${1}::computeQpResidual()\n{\n}\n\nReal\n${1}::computeQpJacobian()\n{\n  return 0.0;\n}",
+    "description": "MOOSE integrated boundary condition implementation"
+  }
+}

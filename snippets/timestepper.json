@@ -1,0 +1,12 @@
+{
+  "MOOSE time stepper header": {
+    "prefix": "timestepper-h",
+    "body": "#pragma once\n\n#include \"InitialCondition.h\"\n\n/**\n *\n */\nclass ${1} : public InitialCondition\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  virtual Real computeInitialDT() override;\n  virtual Real computeDT() override;\n};",
+    "description": "MOOSE time stepper header"
+  },
+  "MOOSE time stepper implementation": {
+    "prefix": "timestepper-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = InitialCondition::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : InitialCondition(parameters)\n{\n}\n\nReal\n${1}::computeInitialDT()\n{\n}\n\nReal\n${1}::computeDT()\n{\n}",
+    "description": "MOOSE time stepper implementation"
+  }
+}

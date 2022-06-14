@@ -1,0 +1,12 @@
+{
+  "MOOSE predictor header": {
+    "prefix": "predictor-h",
+    "body": "#pragma once\n\n#include \"Predictor.h\"\n\n/**\n *\n */\nclass ${1} : public Predictor\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\n  virtual void apply(NumericVector<Number> & sln) override;\n};",
+    "description": "MOOSE predictor header"
+  },
+  "MOOSE predictor implementation": {
+    "prefix": "predictor-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = Predictor::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : Predictor(parameters)\n{\n}\n\nvoid\n${1}::apply(NumericVector<Number> & sln)\n{\n}",
+    "description": "MOOSE predictor implementation"
+  }
+}

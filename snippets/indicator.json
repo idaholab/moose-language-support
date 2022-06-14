@@ -1,0 +1,12 @@
+{
+  "MOOSE indicator header": {
+    "prefix": "indicator-h",
+    "body": "#pragma once\n\n#include \"Indicator.h\"\n\n/**\n *\n */\nclass ${1} : public Indicator\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\n  virtual void computeIndicator() override;\n};",
+    "description": "MOOSE indicator header"
+  },
+  "MOOSE indicator implementation": {
+    "prefix": "indicator-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = Indicator::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : Indicator(parameters)\n{\n}\n\nvoid\n${1}::computeIndicator()\n{\n}",
+    "description": "MOOSE indicator implementation"
+  }
+}

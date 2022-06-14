@@ -1,0 +1,12 @@
+{
+  "MOOSE marker header": {
+    "prefix": "marker-h",
+    "body": "#pragma once\n\n#include \"Marker.h\"\n\n/**\n *\n */\nclass ${1} : public Marker\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  virtual MarkerValue computeElementMarker() override;\n};",
+    "description": "MOOSE marker header"
+  },
+  "MOOSE marker implementation": {
+    "prefix": "marker-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = Marker::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : Marker(parameters)\n{\n}\n\nMarker::MarkerValue\n${1}::computeElementMarker()\n{\n}",
+    "description": "MOOSE marker implementation"
+  }
+}

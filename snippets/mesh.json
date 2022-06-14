@@ -1,0 +1,12 @@
+{
+  "MOOSE mesh header": {
+    "prefix": "mesh-h",
+    "body": "#pragma once\n\n#include \"MooseMesh.h\"\n\n/**\n *\n */\nclass ${1} : public MooseMesh\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n  ${2}(const ${2} & other_mesh) = default;\n\n  // No copy\n  ${2} & operator=(const ${2} & other_mesh) = delete;\n\n  virtual MooseMesh & clone() const override;\n\n  virtual void buildMesh() override;\n};",
+    "description": "MOOSE mesh header"
+  },
+  "MOOSE mesh implementation": {
+    "prefix": "mesh-c",
+    "body": "#include \"${1}.h\"\n\n// libMesh includes\n#include \"libmesh/mesh_generation.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = MooseMesh::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : MooseMesh(parameters)\n{\n}\n\nMooseMesh &\n${1}::clone() const\n{\n  return *(new ${1}(*this));\n}\n\nvoid\n${1}::buildMesh()\n{\n}",
+    "description": "MOOSE mesh implementation"
+  }
+}

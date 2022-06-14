@@ -1,0 +1,12 @@
+{
+  "MOOSE DG kernel header": {
+    "prefix": "dgkernel-h",
+    "body": "#pragma once\n\n#include \"DGKernel.h\"\n\n/**\n *\n */\nclass ${1} : public DGKernel\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  virtual Real computeQpResidual(Moose::DGResidualType type) override;\n  virtual Real computeQpJacobian(Moose::DGJacobianType type) override;\n};",
+    "description": "MOOSE DG kernel header"
+  },
+  "MOOSE DG kernel implementation": {
+    "prefix": "dgkernel-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = DGKernel::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : DGKernel(parameters)\n{\n}\n\nReal\n${1}::computeQpResidual()\n{\n}\n\nReal\n${1}::computeQpJacobian()\n{\n}",
+    "description": "MOOSE DG kernel implementation"
+  }
+}

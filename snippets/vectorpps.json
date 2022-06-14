@@ -1,0 +1,12 @@
+{
+  "MOOSE vector postprocessor header": {
+    "prefix": "vectorpps-h",
+    "body": "#pragma once\n\n#include \"${2:GeneralVectorPostprocessor}.h\"\n\n/**\n *\n */\nclass ${1} : public ${2:GeneralVectorPostprocessor}\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\n  virtual void initialize() override;\n  virtual void execute() override;\n  virtual void finalize() override;\n\n  // only needed for ElementVectorPostprocessors and NodalVectorPostprocessors\n  virtual void threadJoin(const UserObject & y) override;\n};",
+    "description": "MOOSE vector postprocessor header"
+  },
+  "MOOSE vector postprocessor implementation": {
+    "prefix": "vectorpps-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${3:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = ${2:GeneralVectorPostprocessor}::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : ${2:GeneralVectorPostprocessor}(parameters)\n{\n}\n\nvoid\n${1}::initialize()\n{\n}\n\nvoid\n${1}::execute()\n{\n}\n\nvoid\n${1}::finalize()\n{\n}\n\nvoid\n${1}::threadJoin(const UserObject & y)\n{\n  const ${1} & vpp = static_cast<const ${1} &>(y);\n}",
+    "description": "MOOSE vector postprocessor implementation"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "MOOSE material header": {
+    "prefix": "material-h",
+    "body": "#pragma once\n\n#include \"Material.h\"\n\n/**\n *\n */\nclass ${1} : public Material\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  virtual void computeQpProperties() override;\n};",
+    "description": "MOOSE material header"
+  },
+  "MOOSE material implementation": {
+    "prefix": "material-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = Material::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : Material(parameters)\n{\n}\n\nvoid\n${1}::computeQpProperties()\n{\n}",
+    "description": "MOOSE material implementation"
+  }
+}

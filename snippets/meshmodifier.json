@@ -1,0 +1,12 @@
+{
+  "MOOSE mesh modifier header": {
+    "prefix": "meshmodifier-h",
+    "body": "#pragma once\n\n#include \"MeshModifier.h\"\n\n/**\n *\n */\nclass ${1} : public MeshModifier\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\n  virtual void modify() override;\n};",
+    "description": "MOOSE mesh modifier header"
+  },
+  "MOOSE mesh modifier implementation": {
+    "prefix": "meshmodifier-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = MeshModifier::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : MeshModifier(parameters)\n{\n}\n\nvoid\n${1}::modify()\n{\n}",
+    "description": "MOOSE mesh modifier implementation"
+  }
+}

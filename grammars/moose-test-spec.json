@@ -1,0 +1,246 @@
+{
+    "scopeName": "tests.moose",
+    "fileTypes": [
+      "tests"
+    ],
+    "foldingStartMarker": "(^\\s*\\[[^.]+\\]\\s*$)",
+    "foldingStopMarker": "(^\\s*\\[\\]\\s*$)",
+    "name": "MOOSE Tests File",
+    "patterns": [
+      {
+        "include": "#comments"
+      },
+      {
+        "match": "(\\[)(Tests)(\\])",
+        "captures": {
+          "2": {
+            "name": "keyword.control.moose"
+          }
+        }
+      },
+      {
+        "match": "(\\[)(\\.\\/[^]./]+)(\\])",
+        "captures": {
+          "2": {
+            "name": "support.function.moose"
+          }
+        }
+      },
+      {
+        "match": "\\b(type)\\s*(=)\\s*(CSVDiff|CheckFiles|Exodiff|ICEUpdaterTester|PetscJacobianTester|RunApp|RunCommand|RunException|VTKDiff|AnalyzeJacobian)",
+        "captures": {
+          "1": {
+            "name": "keyword.control.moose"
+          },
+          "2": {
+            "name": "keyword.operator.moose"
+          },
+          "3": {
+            "name": "entity.name.function.moose"
+          }
+        }
+      },
+      {
+        "match": "\\b(type)\\s*(=)\\s*'(CSVDiff|CheckFiles|Exodiff|ICEUpdaterTester|PetscJacobianTester|RunApp|RunCommand|RunException|VTKDiff|AnalyzeJacobian)'",
+        "captures": {
+          "1": {
+            "name": "keyword.control.moose"
+          },
+          "2": {
+            "name": "keyword.operator.moose"
+          },
+          "3": {
+            "name": "entity.name.function.moose"
+          }
+        }
+      },
+      {
+        "match": "\\b(input|csvdiff|exodiff)\\s*(=)\\s*(.*)",
+        "captures": {
+          "1": {
+            "name": "keyword.control.moose"
+          },
+          "2": {
+            "name": "keyword.operator.moose"
+          },
+          "3": {
+            "name": "constant.other.filename.moose"
+          }
+        }
+      },
+      {
+        "match": "\\b(cli_args|expect_err|group|design|requirement|issues)\\s*(=)\\s*(.*)",
+        "captures": {
+          "1": {
+            "name": "keyword.control.moose"
+          },
+          "2": {
+            "name": "keyword.operator.moose"
+          },
+          "3": {
+            "name": "string.quoted.moose"
+          }
+        }
+      },
+      {
+        "match": "\\[(\\.+/)\\]",
+        "captures": {
+          "1": {
+            "name": "moose"
+          }
+        }
+      },
+      {
+        "match": "\\[\\]",
+        "captures": {
+          "1": {
+            "name": "moose"
+          }
+        }
+      },
+      {
+        "match": "\\bfamily\\s*(=)\\s*(LAGRANGE|MONOMIAL|HERMITE|SCALAR|HIERARCHIC|CLOUGH|XYZ|SZABAB|BERNSTEIN|L2_LAGRANGE|L2_HIERARCHIC)\\b",
+        "captures": {
+          "1": {
+            "name": "keyword.operator.assignment.moose"
+          },
+          "2": {
+            "name": "constant.language.moose"
+          }
+        }
+      },
+      {
+        "match": "\\belem_type\\s*(=)\\s*(EDGE|EDGE2|EDGE3|EDGE4|QUAD|QUAD4|QUAD8|QUAD9|TRI3|TRI6|HEX|HEX8|HEX20|HEX27|TET4|TET10|PRISM6|PRISM15|PRISM18)\\b",
+        "captures": {
+          "1": {
+            "name": "keyword.operator.assignment.moose"
+          },
+          "2": {
+            "name": "constant.language.moose"
+          }
+        }
+      },
+      {
+        "begin": "[a-z_A-Z0-9]+\\s*(=)\\s*(')",
+        "beginCaptures": {
+          "1": {
+            "name": "keyword.operator.assignment.moose"
+          },
+          "2": {
+            "name": "punctuation.definition.string.begin.moose"
+          }
+        },
+        "end": "'",
+        "endCaptures": {
+          "0": {
+            "name": "punctuation.definition.string.end.moose"
+          }
+        },
+        "patterns": [
+          {
+            "include": "#numbers"
+          }
+        ]
+      },
+      {
+        "begin": "[a-z_A-Z0-9]+\\s*(=)\\s*",
+        "beginCaptures": {
+          "1": {
+            "name": "keyword.operator.assignment.moose"
+          }
+        },
+        "end": "\n",
+        "patterns": [
+          {
+            "include": "#constants"
+          },
+          {
+            "include": "#numbers"
+          },
+          {
+            "include": "#comments"
+          }
+        ]
+      }
+    ],
+    "repository": {
+      "numbers": {
+        "patterns": [
+          {
+            "match": "\\b(\\d*\\.\\d+)\\b",
+            "captures": {
+              "1": {
+                "name": "constant.numeric.moose"
+              }
+            }
+          },
+          {
+            "match": "\\b(\\d+e[+-]{0,1}\\d+)\\b",
+            "captures": {
+              "1": {
+                "name": "constant.numeric.moose"
+              }
+            }
+          },
+          {
+            "match": "\\b(\\d*\\.\\d+e[+-]{0,1}\\d+)\\b",
+            "captures": {
+              "1": {
+                "name": "constant.numeric.moose"
+              }
+            }
+          },
+          {
+            "match": "\\b(\\d+)\\b",
+            "captures": {
+              "1": {
+                "name": "constant.numeric.moose"
+              }
+            }
+          }
+        ]
+      },
+      "constants": {
+        "patterns": [
+          {
+            "match": "(?i)\\b(false|true)\\b",
+            "name": "constant.language.moose"
+          }
+        ]
+      },
+      "escaped_char": {
+        "patterns": [
+          {
+            "match": "\\\\.",
+            "name": "constant.character.escape.moose"
+          }
+        ]
+      },
+      "comments": {
+        "patterns": [
+          {
+            "match": "^\\s*((#+).*)",
+            "captures": {
+              "1": {
+                "name": "punctuation.definition.comment.moose"
+              },
+              "2": {
+                "name": "comment.line.number-sign.moose"
+              }
+            }
+          },
+          {
+            "match": "((#+).*)",
+            "captures": {
+              "1": {
+                "name": "punctuation.definition.comment.moose"
+              },
+              "2": {
+                "name": "comment.line.number-sign.moose"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }

@@ -1,0 +1,12 @@
+{
+  "MOOSE multi-app header": {
+    "prefix": "multiapp-h",
+    "body": "#pragma once\n\n#include \"MultiApp.h\"\n\n/**\n *\n */\nclass ${1} : public MultiApp\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\n  virtual bool solveStep(Real dt, Real target_time, bool auto_advance = true) override;\n  virtual void advanceStep() override;\n};",
+    "description": "MOOSE multi-app header"
+  },
+  "MOOSE multi-app implementation": {
+    "prefix": "multiapp-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = MultiApp::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : MultiApp(parameters)\n{\n}\n\nbool\n${1}::solveStep(Real dt, Real target_time, bool auto_advance/* = true*/)\n{\n}\n\nvoid\n${1}::advanceStep()\n{\n}",
+    "description": "MOOSE multi-app implementation"
+  }
+}

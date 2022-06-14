@@ -1,0 +1,12 @@
+{
+  "MOOSE Dirac kernel header": {
+    "prefix": "dirac-h",
+    "body": "#pragma once\n\n#include \"DiracKernel.h\"\n\n/**\n *\n */\nclass ${1} : public DiracKernel\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\n  virtual void addPoints() override;\n  virtual Real computeQpResidual() override;\n  virtual Real computeQpJacobian() override;\n};",
+    "description": "MOOSE Dirac kernel header"
+  },
+  "MOOSE Dirac kernel implementation": {
+    "prefix": "dirac-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = DiracKernel::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : DiracKernel(parameters)\n{\n}\n\nvoid\n${1}::addPoints()\n{\n}\n\nReal\n${1}::computeQpResidual()\n{\n}\n\nReal\n${1}::computeQpJacobian()\n{\n}",
+    "description": "MOOSE Dirac kernel implementation"
+  }
+}

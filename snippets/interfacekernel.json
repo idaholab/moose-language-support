@@ -1,0 +1,12 @@
+{
+  "MOOSE interfacekernel header": {
+    "prefix": "interfacekernel-h",
+    "body": "#pragma once\n\n#include \"InterfaceKernel.h\"\n\n/**\n *\n */\nclass ${1} : public InterfaceKernel\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  virtual Real computeQpResidual(Moose::DGResidualType type) override;\n  virtual Real computeQpJacobian(Moose::DGJacobianType type) override;\n};",
+    "description": "MOOSE interfacekernel header"
+  },
+  "MOOSE interfacekernel implementation": {
+    "prefix": "interfacekernel-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = InterfaceKernel::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : InterfaceKernel(parameters)\n{\n}\n\nReal\n${1}::computeQpResidual(Moose::DGResidualType type)\n{\n  switch (type)\n  {\n    case Moose::Element:\n      return 0.0 * _test[_i][_qp];\n\n    case Moose::Neighbor:\n      return 0.0 * _test_neighbor[_i][_qp];\n  }\n}\n\nReal\n${1}::computeQpJacobian(Moose::DGJacobianType type)\n{\n  switch (type)\n  {\n    case Moose::ElementElement:\n      return 0.0 * _test[_i][_qp];\n\n    case Moose::NeighborNeighbor:\n      return 0.0 * _test_neighbor[_i][_qp];\n\n    case Moose::NeighborElement:\n      return 0.0 * _test_neighbor[_i][_qp];\n\n    case Moose::ElementNeighbor:\n      return 0.0 * _test[_i][_qp];\n  }\n}",
+    "description": "MOOSE interfacekernel implementation"
+  }
+}

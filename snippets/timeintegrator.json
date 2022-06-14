@@ -1,0 +1,12 @@
+{
+  "MOOSE time integrator header": {
+    "prefix": "timeintegrator-h",
+    "body": "#pragma once\n\n#include \"TimeIntegrator.h\"\n\n/**\n *\n */\nclass ${1} : public TimeIntegrator\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\n  virtual int order() override;\n  virtual void computeTimeDerivatives() override;\n};",
+    "description": "MOOSE time integrator header"
+  },
+  "MOOSE time integrator implementation": {
+    "prefix": "timeintegrator-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = TimeIntegrator::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : TimeIntegrator(parameters)\n{\n}\n\nint\n${1}::order()\n{\n}\n\nvoid\n${1}::computeTimeDerivatives()\n{\n}",
+    "description": "MOOSE time integrator implementation"
+  }
+}
