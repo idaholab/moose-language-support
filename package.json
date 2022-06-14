@@ -13,19 +13,15 @@
 		"vscode": "^1.68.0"
 	},
 	"categories": [
-		"Other"
+		"Language Packs",
+		"Snippets",
+		"Formatters"
 	],
 	"activationEvents": [
-		"onCommand:moose-language-support.helloWorld"
+		"onLanguage:moose"
 	],
 	"main": "./client/out/extension",
 	"contributes": {
-		"commands": [
-			{
-				"command": "moose-language-support.helloWorld",
-				"title": "Hello World"
-			}
-		],
 		"languages": [
 			{
 				"id": "moose",
@@ -161,7 +157,30 @@
 				"language": "cpp",
 				"path": "./snippets/vectorpps.json"
 			}
-		]
+		],
+		"configuration": {
+			"type": "object",
+			"title": "Example configuration",
+			"properties": {
+				"languageServerMoose.maxNumberOfProblems": {
+					"scope": "resource",
+					"type": "number",
+					"default": 100,
+					"description": "Controls the maximum number of problems produced by the server."
+				},
+				"languageServerMoose.trace.server": {
+					"scope": "window",
+					"type": "string",
+					"enum": [
+						"off",
+						"messages",
+						"verbose"
+					],
+					"default": "off",
+					"description": "Traces the communication between VS Code and the language server."
+				}
+			}
+		}
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",

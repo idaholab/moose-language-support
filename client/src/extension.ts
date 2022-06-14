@@ -15,6 +15,7 @@ export function activate(context: ExtensionContext) {
 	const serverModule = context.asAbsolutePath(
 		path.join('server', 'out', 'server.js')
 	);
+
 	// The debug options for the server
 	// --inspect=6009: runs the server in Node's Inspector mode so VS Code can attach to the server for debugging
 	const debugOptions = { execArgv: ['--nolazy', '--inspect=6009'] };
@@ -32,8 +33,8 @@ export function activate(context: ExtensionContext) {
 
 	// Options to control the language client
 	const clientOptions: LanguageClientOptions = {
-		// Register the server for plain text documents
-		documentSelector: [{ scheme: 'file', language: 'plaintext' }],
+		// Register the server for MOOSE input files
+		documentSelector: [{ scheme: 'file', language: 'moose' }],
 		synchronize: {
 			// Notify the server about file changes to '.clientrc files contained in the workspace
 			fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
@@ -42,14 +43,15 @@ export function activate(context: ExtensionContext) {
 
 	// Create the language client and start the client.
 	client = new LanguageClient(
-		'languageServerExample',
-		'Language Server Example',
+		'languageServerMoose',
+		'MOOSE Language Server',
 		serverOptions,
 		clientOptions
 	);
 
 	// Start the client. This will also launch the server
 	client.start();
+    console.log("client started for MOOSE!");
 }
 
 export function deactivate(): Thenable<void> | undefined {
