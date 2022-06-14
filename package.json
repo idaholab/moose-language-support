@@ -18,7 +18,7 @@
 	"activationEvents": [
 		"onCommand:moose-language-support.helloWorld"
 	],
-	"main": "./extension.js",
+	"main": "./client/out/extension",
 	"contributes": {
 		"commands": [
 			{
@@ -54,129 +54,129 @@
 		],
 		"snippets": [
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/action.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/adkernel.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/auxkernel.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/bc.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/constraint.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/control.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/damper.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/dgkernel.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/dirackernel.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/function.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/ic.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/indicator.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/interfacekernel.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/kernel.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/marker.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/material.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/mesh.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/meshmodifier.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/multiapp.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/nodalkernel.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/pps.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/predictor.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/timeintegrator.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/timestepper.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/transfer.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/userobjects.json"
 			},
 			{
-				"language": "moose",
+				"language": "cpp",
 				"path": "./snippets/vectorpps.json"
 			}
 		]
 	},
 	"scripts": {
-		"lint": "eslint .",
-		"pretest": "npm run lint",
-		"test": "node ./test/runTest.js"
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -b",
+		"watch": "tsc -b -w",
+		"lint": "eslint ./client/src ./server/src --ext .ts,.tsx",
+		"postinstall": "cd client && npm install && cd ../server && npm install && cd .."
 	},
 	"devDependencies": {
-		"@types/vscode": "^1.68.0",
-		"@types/glob": "^7.2.0",
-		"@types/mocha": "^9.1.1",
-		"@types/node": "16.x",
-		"eslint": "^8.16.0",
-		"glob": "^8.0.3",
-		"mocha": "^10.0.0",
-		"typescript": "^4.7.2",
-		"@vscode/test-electron": "^2.1.3"
+		"@types/mocha": "^9.1.0",
+		"@types/node": "^16.11.7",
+		"@typescript-eslint/eslint-plugin": "^5.19.0",
+		"@typescript-eslint/parser": "^5.19.0",
+		"eslint": "^8.13.0",
+		"mocha": "^9.2.1",
+		"typescript": "^4.7.2"
 	}
 }

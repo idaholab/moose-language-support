@@ -2,9 +2,9 @@
 
 This extension is a port of the `language-moose` and `autocomplete-moose`  
 ## Features
-Add syntax highlighting and snippets to MOOSE input files in Atom.
+Add syntax highlighting and snippets to MOOSE input files in VSCode.
 
-![screenshot](http://i.imgur.com/57fmKBz.png)
+![screenshot](https://i.imgur.com/57fmKBz.png)
 
 Syntax highlighting for:
 * Valid top level blocks
