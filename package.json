@@ -162,6 +162,11 @@
 			"type": "object",
 			"title": "Example configuration",
 			"properties": {
+				"languageServerMoose.allowTestObjects": {
+					"type": "boolean",
+					"default": true,
+					"description": "Show test objects in the suggestion list."
+				},
 				"languageServerMoose.maxNumberOfProblems": {
 					"scope": "resource",
 					"type": "number",
