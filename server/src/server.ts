@@ -17,6 +17,10 @@ import {
     TextDocument
 } from 'vscode-languageserver-textdocument';
 
+import {
+    MooseLanguageSettings
+} from './interfaces';
+
 import * as provider from './provider';
 
 // Create a connection for the server, using Node's IPC as a transport.
@@ -78,13 +82,6 @@ connection.onInitialized(() => {
     }
 });
 
-// The example settings
-interface MooseLanguageSettings {
-    maxNumberOfProblems: number;
-    fallbackMooseDir: string;
-    ignoreMooseNotFoundError: boolean;
-    hideDeprecatedParams: boolean;
-}
 
 // The global settings, used when the `workspace/configuration` request is not supported by the client.
 // Please note that this is not the case when using this server with the client provided in this example
@@ -93,7 +90,8 @@ const defaultSettings: MooseLanguageSettings = {
     maxNumberOfProblems: 1000,
     fallbackMooseDir: '',
     ignoreMooseNotFoundError: false,
-    hideDeprecatedParams: false
+    hideDeprecatedParams: false,
+    allowTestObjects: false
 };
 let globalSettings: MooseLanguageSettings = defaultSettings;
 

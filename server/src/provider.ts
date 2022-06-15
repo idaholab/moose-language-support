@@ -5,6 +5,11 @@ import {
     CompletionItemTag
 } from 'vscode-languageserver/node';
 
+import {
+    MooseLanguageSettings,
+    MooseSyntax
+} from './interfaces';
+
 import * as Parser from 'web-tree-sitter';
 import * as path from 'path';
 import * as readline from 'readline';
@@ -32,27 +37,27 @@ const otherParameter = /^\s*([^\s#=\]]+)\s*=\s*('\s*[^\s'#=\]]*(\s?)[^'#=\]]*|[^
 const mooseApp = /^(.*)-(opt|dbg|oprof|devel)$/;
 const stdVector = /^std::([^:]+::)?vector<([a-zA-Z0-9_]+)(,\s?std::\1allocator<\2>\s?)?>$/;
 
-const suggestionIcon = {
-    required: '<i class="icon-primitive-square text-error"></i>',
-    hasDefault: '<i class="icon-primitive-square text-success"></i>',
-    noDefault: '<i class="icon-primitive-dot text-success"></i>',
-    type: '<i class="icon-gear keyword"></i>',
-    output: '<i class="icon-database text-info"></i>'
-};
-
 // we cache the settings here so we don't have to pass them as function arguments
-var mySettings;
+var mySettings: MooseLanguageSettings;
+
+interface AppDir {
+    appPath: string;
+    appName: string;
+    appFile: string | null;
+    appDate: number;
+    appWSL: string | null;
+}
 
 // each moose input file in the project dir could have its own moose app and
 // json/syntax associated this table points to the app dir for each editor path
-let appDirs = {};
-let syntaxWarehouse = {};
-let offlineSyntax = null;
+let appDirs: { [key: string]: AppDir } = {};
+let syntaxWarehouse: { [key: string]: {} } = {};
+let offlineSyntax: string | null = null;
 
 // Clear the cache for the app associated with current file.
 // This is made available as a VSCode command.
 export function clearCache() {
-    var appPath : string, editor, filePath : string;
+    var appPath: string, editor, filePath: string;
     //editor = atom.workspace.getActiveTextEditor(); TODO!
     filePath = path.dirname(editor.getPath());
     if (filePath in appDirs) {
@@ -64,8 +69,8 @@ export function clearCache() {
     }
 }
 
-function findApp(filePath: string): string | null {
-    var fallbackMooseDir, file, fileTime, fileWithPath, i, isWSL, len, match, matches, previous_path, ref, searchPath, stats, wslDistro, wslPath;
+function findApp(filePath: string): AppDir | null {
+    var fallbackMooseDir, file, fileTime, fileWithPath, i, isWSL, len, match, matches: AppDir[], previous_path, ref, searchPath, stats, wslDistro, wslPath;
     if (filePath == null) {
         vscode.window.showErrorMessage('File not saved, nowhere to search for MOOSE syntax data.');
         return null;
@@ -139,23 +144,22 @@ function findApp(filePath: string): string | null {
 }
 
 // fetch JSON syntax data
-function loadSyntax(app): Object {
-    var appDate, appFile, appName, appPath, cacheDate, cacheDir, cacheFile, loadCache, w;
-    ({ appPath, appName, appFile, appDate } = app);
+function loadSyntax(app: AppDir): MooseSyntax {
+    var cacheDate: number, cacheDir: string, cacheFile: string | null = null, w: MooseSyntax;
     // prepare entry in the syntax warehouse
-    w = syntaxWarehouse[appPath] = {};
+    w = syntaxWarehouse[app.appPath] = {};
     // do not cache offlineSyntax
-    if (appName) {
+    if (app.appName) {
         // we cache syntax data here
         cacheDir = path.join(__dirname, '..', 'cache');
         fs.makeTreeSync(cacheDir);
-        cacheFile = path.join(cacheDir, `${appName}.json`);
+        cacheFile = path.join(cacheDir, `${app.appName}.json`);
 
         // see if the cache file exists
         if (fs.existsSync(cacheFile)) {
             cacheDate = fs.statSync(cacheFile).mtime.getTime();
             // if the cacheFile is newer than the app compile date we use the cache
-            if (cacheDate > appDate) {
+            if (cacheDate > app.appDate) {
                 // load and parse the cached syntax
                 try {
                     let result = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
@@ -164,11 +168,11 @@ function loadSyntax(app): Object {
                         throw 'Invalid cache';
                     }
 
-                    return w.json = result;
+                    return w = result;
                 } catch (error) {
                     // TODO: rebuild syntax if loading the cache fails
                     vscode.window.showWarningMessage('Failed to load cached syntax (probably a legacy cache file).');
-                    delete syntaxWarehouse[appPath];
+                    delete syntaxWarehouse[app.appPath];
                     fs.unlink(cacheFile, function () { });
                     return {};
                 };
@@ -180,35 +184,32 @@ function loadSyntax(app): Object {
 }
 
 // rebuild syntax
-function rebuildSyntax(app, cacheFile, w) {
-    var appDate, appFile, appName, appPath, appWSL, mooseJSON, workingNotification;
-    ({ appPath, appName, appFile, appDate, appWSL } = app);
-
+function rebuildSyntax(app: AppDir, cacheFile: string | null, w: MooseSyntax): MooseSyntax {
     // open notification about syntax generation
-    workingNotification = vscode.window.setStatusBarMessage('Rebuilding MOOSE syntax data.');
+    var workingNotification = vscode.window.setStatusBarMessage('Rebuilding MOOSE syntax data.');
 
     var args: Array<string>, jsonData: string, moose;
 
     // either run moose or use the offlineSyntax file
     try {
-        if (appFile != null) {
+        if (app.appFile != null) {
             args = ['--json'];
             if (mySettings.allowTestObjects) {
                 args.push('--allow-test-objects');
             }
-            if (appWSL) {
-                moose = cp.spawnSync('wsl', ['-d', appWSL, appFile].concat(args, {
+            if (app.appWSL) {
+                moose = cp.spawnSync('wsl', ['-d', app.appWSL, app.appFile].concat(args), {
                     stdio: ['pipe', 'pipe', 'ignore']
-                }));
+                });
             } else {
-                moose = cp.spawnSync(appFile, args, {
+                moose = cp.spawnSync(app.appFile, args, {
                     stdio: ['pipe', 'pipe', 'ignore']
                 });
             }
 
             // check if the MOOSE app ran successfully
             if (moose.status != 0)
-                throw 'Failed to run MOOSE to obtain syntax data';
+                throw new Error('Failed to run MOOSE to obtain syntax data');
 
             // clip the JSON from the output using the markers
             const beginMarker = '**START JSON DATA**\n';
@@ -217,38 +218,38 @@ function rebuildSyntax(app, cacheFile, w) {
             let end = moose.stdout.lastIndexOf(endMarker);
 
             if (begin < 0 || end < begin) {
-                throw 'Markers not found';
+                throw new Error('Markers not found');
             }
 
             // parse the JSON
-            jsonData = moose.stdout.slice(begin + beginMarker.length, end); // Wat?!
+            jsonData = moose.stdout.slice(begin + beginMarker.length, end).toString();
         } else {
             try {
                 // read offline syntax dump (./moose-opt --json > offlinesyntax)
-                jsonData = fs.readFileSync(appPath, 'utf8');
+                jsonData = fs.readFileSync(app.appPath, 'utf8');
             } catch (e) {
-                throw `Failed to load offline syntax file '${offlineSyntax}'`;
+                throw new Error(`Failed to load offline syntax file '${offlineSyntax}'`);
             }
 
             // parse the JSON
-            w.json = JSON.parse(jsonData);
+            w = JSON.parse(jsonData);
 
             // write the JSON cache
             if (cacheFile != null) {
-                fs.writeFile(cacheFile, JSON.stringify(w.json), function () { });
+                fs.writeFile(cacheFile, JSON.stringify(w), function () { });
             }
         }
 
         workingNotification.dispose();
         return w;
-    } catch (error) {
+    } catch (error: any) {
         workingNotification.dispose();
-        console.log(error);
-        vscode.window.showErrorMessage(error != null ? error.text : "Failed to obtain syntax data");
+        vscode.window.showErrorMessage(error['message']);
+        return {};
     }
 }
 
-function prepareCompletion(request, w) {
+function prepareCompletion(request: TextDocumentPositionParams, w: {}) {
     // tree update
     if (parser == null) {
         return;
@@ -258,14 +259,14 @@ function prepareCompletion(request, w) {
 }
 
 // get the node in the JSON stucture for the current block level
-function getSyntaxNode(configPath, w) {
-    var b, i, len, p, ref, ref1;
+function getSyntaxNode(configPath: string, w: MooseSyntax): MooseSyntax | null {
+    var i, len, p, ref, ref1;
     // no parameters at the root
     if (configPath.length === 0) {
-        return void 0;
+        return null;
     }
     // traverse subblocks
-    b = w.json.blocks[configPath[0]];
+    var b = w.blocks[configPath[0]];
     ref = configPath.slice(1);
     for (i = 0, len = ref.length; i < len; i++) {
         p = ref[i];
@@ -284,14 +285,14 @@ function getSyntaxNode(configPath, w) {
 }
 
 // get a list of valid subblocks
-function getSubblocks(configPath, w) {
-    var b, ret;
+function getSubblocks(configPath: string, w: MooseSyntax): string[] {
+    var ret: string[] = [];
     // get top level blocks
     if (configPath.length === 0) {
-        return Object.keys(w.json.blocks);
+        return Object.keys(w.blocks);
     }
     // traverse subblocks
-    b = getSyntaxNode(configPath, w);
+    var b = getSyntaxNode(configPath, w);
     ret = Object.keys((b != null ? b.subblocks : void 0) || {});
     if (b != null ? b.star : void 0) {
         ret.push('*');
@@ -301,16 +302,17 @@ function getSubblocks(configPath, w) {
 
 // get a list of parameters for the current block
 // if the type parameter is known add in class specific parameters
-function getParameters(configPath, explicitType, w) {
-    var b, currentType, n, ref, ref1, ref2, ret, t;
-    ret = {};
-    b = getSyntaxNode(configPath, w);
+function getParameters(configPath: string, explicitType: string, w: MooseSyntax): MooseSyntax {
+    var currentType, n, ref, ref1, ref2, ret: MooseSyntax = {}, t;
+    var b = getSyntaxNode(configPath, w);
     // handle block level action parameters first
-    for (n in b != null ? b.actions : void 0) {
-        Object.assign(ret, b.actions[n].parameters);
+    if (b != null) {
+        for (n in b.actions) {
+            Object.assign(ret, b.actions[n].parameters);
+        }
     }
     // if no type is explicitly set check if a default value exists
-    currentType = explicitType || (ret != null ? (ref = ret.type) != null ? ref.default : void 0 : void 0);
+    currentType = explicitType || (ret != null ? (ref = ret['type']) != null ? ref.default : void 0 : void 0);
     // if the type is known add the specific parameters
     t = (b != null ? (ref1 = b.subblock_types) != null ? ref1[currentType] : void 0 : void 0) || (b != null ? (ref2 = b.types) != null ? ref2[currentType] : void 0 : void 0);
     Object.assign(ret, t != null ? t.parameters : void 0);
@@ -318,29 +320,33 @@ function getParameters(configPath, explicitType, w) {
 }
 
 // get a list of possible completions for the type parameter at the current block level
-function getTypes(configPath, w): CompletionItem[] {
-    var b, n, ret;
+function getTypes(configPath: string, w: MooseSyntax): CompletionItem[] {
+    var n, ret: CompletionItem[];
     ret = [];
-    b = getSyntaxNode(configPath, w);
-    for (n in b != null ? b.subblock_types : void 0) {
-        ret.push({
-            label: n,
-            documentation: b.subblock_types[n].description,
-            kind: CompletionItemKind.TypeParameter
-        });
+
+    var b = getSyntaxNode(configPath, w);
+    if (b != null) {
+        for (n in b.subblock_types) {
+            ret.push({
+                label: n,
+                documentation: b.subblock_types[n].description,
+                kind: CompletionItemKind.TypeParameter
+            });
+        }
+        for (n in b.types) {
+            ret.push({
+                label: n,
+                documentation: b.types[n].description,
+                kind: CompletionItemKind.TypeParameter
+            });
+        }
     }
-    for (n in b != null ? b.types : void 0) {
-        ret.push({
-            label: n,
-            documentation: b.types[n].description,
-            kind: CompletionItemKind.TypeParameter
-        });
-    }
+
     return ret;
 }
 
-// Filename completions
-function computeFileNameCompletion(wildcards, editor) {
+// Filename completions (TODO, respect wildcards)
+function computeFileNameCompletion(wildcards: string[], editor) {
     var completions: CompletionItem[], dir, filePath, i, len, name;
     filePath = path.dirname(editor.getPath());
     dir = fs.readdirSync(filePath);
@@ -357,22 +363,25 @@ function computeFileNameCompletion(wildcards, editor) {
 
 // checks if this is a vector type build the vector cpp_type name for a
 // given single type (checks for gcc and clang variants)
-function isVectorOf(yamlType, type) {
+function isVectorOf(yamlType: string, type: string) {
     var match;
     return (match = stdVector.exec(yamlType)) && match[2] === type;
 }
 
 // build the suggestion list for parameter values (editor is passed in
 // to build the variable list)
-function computeValueCompletion(param, editor, isQuoted, hasSpace, w): CompletionItem[] {
-    var basicType, blockList, buildBlockList, completions, hasType, i, len, match, matches, option, output, ref, singleOK, vectorOK;
+function computeValueCompletion(param: MooseSyntax, editor, isQuoted: boolean, hasSpace: boolean, w: MooseSyntax): CompletionItem[] {
+    var basicType, blockList: string[], completions: CompletionItem[], i, len, match, matches,
+        option, output, ref, singleOK : boolean, vectorOK:boolean;
+
     singleOK = !hasSpace;
     vectorOK = isQuoted || !hasSpace;
-    hasType = (type) => {
-        return (param.cpp_type === type && singleOK) || (isVectorOf(param.cpp_type, type) && vectorOK);
-    };
+    // hasType = (type) => {
+    //     return (param.cpp_type === type && singleOK) || (isVectorOf(param.cpp_type, type) && vectorOK);
+    // };
+
     blockList = [];
-    buildBlockList = function (node, oldPath) {
+    var buildBlockList = function (node, oldPath?: string) {
         var block, c, i, len, newPath, ref, results: CompletionItem[];
         ref = node.children;
         results = [];
@@ -385,13 +394,14 @@ function computeValueCompletion(param, editor, isQuoted, hasSpace, w): Completio
                 }
                 newPath = (oldPath ? oldPath + '/' : '') + block;
                 blockList.push(newPath);
-                results.push(buildBlockList(c, newPath));
+                results.concat(buildBlockList(c, newPath));
             } else {
-                results.push({ label: 'void'}); // TODO: why did I push undefined here?
+                results.push({ label: 'void' }); // TODO: why did I push undefined here?
             }
         }
         return results;
     };
+
     if ((param.cpp_type === 'bool' && singleOK) || (isVectorOf(param.cpp_type, 'bool') && vectorOK)) {
         return [
             {
@@ -404,6 +414,7 @@ function computeValueCompletion(param, editor, isQuoted, hasSpace, w): Completio
             }
         ];
     }
+
     if ((param.cpp_type === 'MooseEnum' && singleOK) || (param.cpp_type === 'MultiMooseEnum' && vectorOK)) {
         if (param.options != null) {
             completions = [];
@@ -418,10 +429,12 @@ function computeValueCompletion(param, editor, isQuoted, hasSpace, w): Completio
             return completions;
         }
     }
+
     match = param.cpp_type.match(/^std::vector<([^>]+)>$/);
     if ((match && !vectorOK) || (!match && !singleOK)) {
         return [];
     }
+
     basicType = match ? match[1] : param.cpp_type;
     if (basicType === 'FileName') {
         return computeFileNameCompletion(['*'], editor);
@@ -444,11 +457,12 @@ function computeValueCompletion(param, editor, isQuoted, hasSpace, w): Completio
             return results;
         })();
     }
+
     // automatically generated matches from registerSyntaxType
-    if (basicType in w.json.global.associated_types) {
+    if (basicType in w.global.associated_types) {
         buildBlockList(tree.rootNode);
         completions = [];
-        matches = new Set(w.json.global.associated_types[basicType]);
+        matches = new Set(w.global.associated_types[basicType]);
         matches.forEach(function (match) {
             var block, j, key, len1, results;
             if (match.slice(-2) === '/*') {
@@ -473,10 +487,10 @@ function computeValueCompletion(param, editor, isQuoted, hasSpace, w): Completio
     return [];
 }
 
-function getPrefix(line) {
-    var ref, regex;
+function getPrefix(line: string) {
+    var ref;
     // Whatever your prefix regex might be
-    regex = /[\w0-9_\-.\/\[]+$/;
+    const regex = /[\w0-9_\-.\/\[]+$/;
     // Match the regex to the line, and return the match
     return ((ref = line.match(regex)) != null ? ref[0] : void 0) || '';
 }
@@ -565,7 +579,7 @@ function isParameterCompletion(line): boolean {
 
 // w contains the syntax applicable to the current file
 function computeCompletion(request, w) {
-    var addedWildcard, blockPostfix, blockPrefix, bufferPosition, completion, completions, configPath, defaultValue, editor, explicitType, hasSpace, i, icon : CompletionItemKind, isQuoted, j, len, len1, line, match, name, param, paramName, partialPath, postLine, prefix, ref, ref1;
+    var addedWildcard, blockPostfix, blockPrefix, bufferPosition, completion, completions, configPath, defaultValue, editor, explicitType, hasSpace, i, icon: CompletionItemKind, isQuoted, j, len, len1, line, match, name, param: MooseSyntax, paramName, partialPath, postLine, prefix, ref, ref1;
     ({ editor, bufferPosition } = request);
     completions = [];
     // current line up to the cursor position
@@ -650,7 +664,7 @@ function computeCompletion(request, w) {
         paramName = match[1];
         isQuoted = match[2][0] === "'";
         hasSpace = !!match[3];
-        param = (getParameters(configPath, explicitType, w))[paramName];
+        param = getParameters(configPath, explicitType, w)[paramName];
         if (param == null) {
             return [];
         }
@@ -670,8 +684,8 @@ function computeCompletion(request, w) {
 }
 
 
-export function getSuggestions(request: TextDocumentPositionParams, settings): CompletionItem[] {
-    var dir, loaded, w; 
+export function getSuggestions(request: TextDocumentPositionParams, settings: MooseLanguageSettings): CompletionItem[] {
+    var dir: AppDir | null, loaded, w;
 
     let uri: URI = URI.parse(request.textDocument.uri);
     if (uri.scheme != 'file')
