@@ -1,9 +1,21 @@
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
 import {
     TextDocumentPositionParams,
+    TextDocuments,
     CompletionItem,
     CompletionItemKind,
-    CompletionItemTag
+    CompletionItemTag,
+    Connection
 } from 'vscode-languageserver/node';
+
+import {
+    TextDocument
+} from 'vscode-languageserver-textdocument';
 
 import {
     MooseLanguageSettings,
@@ -16,7 +28,7 @@ import * as readline from 'readline';
 import * as fs from 'fs-plus';
 import * as cp from 'child_process';
 
-import * as vscode from 'vscode';
+// import * as vscode from 'vscode';
 import { URI } from 'vscode-uri'
 
 // while the Parser is initializing and loading the language, we block its use
@@ -40,12 +52,14 @@ const stdVector = /^std::([^:]+::)?vector<([a-zA-Z0-9_]+)(,\s?std::\1allocator<\
 // we cache the settings here so we don't have to pass them as function arguments
 var mySettings: MooseLanguageSettings;
 
+// we cache the connection so we can send notifications
+var myConnection : Connection;
 interface AppDir {
     appPath: string;
-    appName: string;
-    appFile: string | null;
-    appDate: number;
-    appWSL: string | null;
+    appName?: string;
+    appFile?: string;
+    appDate?: number;
+    appWSL?: string;
 }
 
 // each moose input file in the project dir could have its own moose app and
@@ -56,23 +70,26 @@ let offlineSyntax: string | null = null;
 
 // Clear the cache for the app associated with current file.
 // This is made available as a VSCode command.
-export function clearCache() {
-    var appPath: string, editor, filePath: string;
-    //editor = atom.workspace.getActiveTextEditor(); TODO!
-    filePath = path.dirname(editor.getPath());
-    if (filePath in appDirs) {
-        appPath = appDirs[filePath].appPath;
-        delete appDirs[filePath];
-        if (appPath in syntaxWarehouse) {
-            return delete syntaxWarehouse[appPath];
-        }
-    }
-}
+// export function clearCache() {
+//     var appPath: string, editor, filePath: string;
+
+//     let uri: URI = URI.parse(request.textDocument.uri);
+//     let filePath: string = uri.fsPath;
+
+//     if (filePath in appDirs) {
+//         appPath = appDirs[filePath].appPath;
+//         delete appDirs[filePath];
+//         if (appPath in syntaxWarehouse) {
+//             return delete syntaxWarehouse[appPath];
+//         }
+//     }
+// }
 
 function findApp(filePath: string): AppDir | null {
     var fallbackMooseDir, file, fileTime, fileWithPath, i, isWSL, len, match, matches: AppDir[], previous_path, ref, searchPath, stats, wslDistro, wslPath;
     if (filePath == null) {
-        vscode.window.showErrorMessage('File not saved, nowhere to search for MOOSE syntax data.');
+        // vscode.window.showErrorMessage('File not saved, nowhere to search for MOOSE syntax data.');
+
         return null;
     }
     if (filePath in appDirs) {
@@ -136,7 +153,7 @@ function findApp(filePath: string): AppDir | null {
             }
             if (!mySettings.ignoreMooseNotFoundError) {
                 // otherwise pop up an error notification (if not disabled) end give up
-                vscode.window.showErrorMessage('No MOOSE application executable found.');
+                // vscode.window.showErrorMessage('No MOOSE application executable found.');
             }
             return null;
         }
@@ -171,7 +188,7 @@ function loadSyntax(app: AppDir): MooseSyntax {
                     return w = result;
                 } catch (error) {
                     // TODO: rebuild syntax if loading the cache fails
-                    vscode.window.showWarningMessage('Failed to load cached syntax (probably a legacy cache file).');
+                    // vscode.window.showWarningMessage('Failed to load cached syntax (probably a legacy cache file).');
                     delete syntaxWarehouse[app.appPath];
                     fs.unlink(cacheFile, function () { });
                     return {};
@@ -186,7 +203,7 @@ function loadSyntax(app: AppDir): MooseSyntax {
 // rebuild syntax
 function rebuildSyntax(app: AppDir, cacheFile: string | null, w: MooseSyntax): MooseSyntax {
     // open notification about syntax generation
-    var workingNotification = vscode.window.setStatusBarMessage('Rebuilding MOOSE syntax data.');
+    //var workingNotification = vscode.window.setStatusBarMessage('Rebuilding MOOSE syntax data.');
 
     var args: Array<string>, jsonData: string, moose;
 
@@ -240,21 +257,22 @@ function rebuildSyntax(app: AppDir, cacheFile: string | null, w: MooseSyntax): M
             }
         }
 
-        workingNotification.dispose();
+        //workingNotification.dispose();
         return w;
     } catch (error: any) {
-        workingNotification.dispose();
-        vscode.window.showErrorMessage(error['message']);
+        //workingNotification.dispose();
+        //vscode.window.showErrorMessage(error['message']);
         return {};
     }
 }
 
-function prepareCompletion(request: TextDocumentPositionParams, w: {}) {
+function prepareCompletion(documents: TextDocuments<TextDocument>, request: TextDocumentPositionParams, w: {}) {
     // tree update
     if (parser == null) {
         return;
     }
-    tree = parser.parse(request.editor.getBuffer().getText());
+
+    tree = parser.parse(documents.get(request.textDocument.uri).getText());
     return computeCompletion(request, w);
 }
 
@@ -372,7 +390,7 @@ function isVectorOf(yamlType: string, type: string) {
 // to build the variable list)
 function computeValueCompletion(param: MooseSyntax, editor, isQuoted: boolean, hasSpace: boolean, w: MooseSyntax): CompletionItem[] {
     var basicType, blockList: string[], completions: CompletionItem[], i, len, match, matches,
-        option, output, ref, singleOK : boolean, vectorOK:boolean;
+        option, output, ref, singleOK: boolean, vectorOK: boolean;
 
     singleOK = !hasSpace;
     vectorOK = isQuoted || !hasSpace;
@@ -684,8 +702,8 @@ function computeCompletion(request, w) {
 }
 
 
-export function getSuggestions(request: TextDocumentPositionParams, settings: MooseLanguageSettings): CompletionItem[] {
-    var dir: AppDir | null, loaded, w;
+export function getSuggestions(documents: TextDocuments<TextDocument>, request: TextDocumentPositionParams, settings: MooseLanguageSettings): CompletionItem[] {
+    var app: AppDir | null, loaded, w;
 
     let uri: URI = URI.parse(request.textDocument.uri);
     if (uri.scheme != 'file')
@@ -697,39 +715,35 @@ export function getSuggestions(request: TextDocumentPositionParams, settings: Mo
 
     // lookup application for current input file (cached)
     if (offlineSyntax) {
-        dir = {
-            appPath: offlineSyntax,
-            appName: null,
-            appFile: null,
-            appDate: null,
-            appWSL: null
+        app = {
+            appPath: offlineSyntax
         };
     } else {
-        dir = findApp(filePath);
+        app = findApp(filePath);
     }
-    if (dir == null) {
+    if (app == null) {
         return [];
     }
 
     // check if the syntax is already loaded, currently loading,
     // or not requested yet
-    if (!(dir.appPath in syntaxWarehouse)) {
+    if (!(app.appPath in syntaxWarehouse)) {
         // return a promise that gets fulfilled as soon as the syntax data is loaded
-        loadSyntax(dir);
+        loadSyntax(app);
 
         // watch executable (unless it's WSL)
-        if ((dir.appFile != null) && (dir.appWSL == null)) {
-            fs.watch(dir.appFile, function (event, filename) {
+        if ((app.appFile != null) && (app.appWSL == null)) {
+            fs.watch(app.appFile, function (event, filename) {
                 // force rebuilding of syntax if executable changed
                 delete appDirs[filePath];
-                return delete syntaxWarehouse[dir.appPath];
+                return delete syntaxWarehouse[app.appPath];
             });
         }
         // perform completion
-        return prepareCompletion(request, syntaxWarehouse[dir.appPath]);
+        return prepareCompletion(documents, request, syntaxWarehouse[app.appPath]);
     }
 
-    w = syntaxWarehouse[dir.appPath];
-    return prepareCompletion(request, w);
+    w = syntaxWarehouse[app.appPath];
+    return prepareCompletion(documents, request, w);
 }
 

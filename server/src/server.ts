@@ -1,3 +1,9 @@
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
 import {
     createConnection,
     TextDocuments,
@@ -194,7 +200,7 @@ connection.onDidChangeWatchedFiles(_change => {
 connection.onCompletion(
     (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
         //const settings = getDocumentSettings(_textDocumentPosition.textDocument.uri);
-        return provider.getSuggestions(_textDocumentPosition, globalSettings);
+        return provider.getSuggestions(documents, _textDocumentPosition, globalSettings);
 
         // // The pass parameter contains the position of the text document in
         // // which code complete got requested. For the example we ignore this
