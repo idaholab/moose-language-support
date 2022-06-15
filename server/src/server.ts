@@ -184,7 +184,7 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
                 }
             ];
         }
-        diagnostics.push(diagnostic);
+        // diagnostics.push(diagnostic);
     }
 
     // Send the computed diagnostics to VSCode.

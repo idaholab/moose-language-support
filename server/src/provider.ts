@@ -34,7 +34,7 @@ import * as fs from 'fs-plus';
 import * as cp from 'child_process';
 
 // import * as vscode from 'vscode';
-import { URI } from 'vscode-uri'
+import { URI, Utils } from 'vscode-uri'
 
 // while the Parser is initializing and loading the language, we block its use
 var parser: Parser | null = null;
@@ -245,30 +245,33 @@ function rebuildSyntax(app: AppDir, cacheFile: string | null, w: MooseSyntax): M
             }
             if (app.WSL) {
                 moose = cp.spawnSync('wsl', ['-d', app.WSL, app.file].concat(args), {
-                    stdio: ['pipe', 'pipe', 'ignore']
+                    stdio: ['pipe', 'pipe', 'ignore'],
+                    maxBuffer: 1024 * 1024 * 1024
                 });
             } else {
                 moose = cp.spawnSync(app.file, args, {
-                    stdio: ['pipe', 'pipe', 'ignore']
+                    stdio: ['pipe', 'pipe', 'ignore'],
+                    maxBuffer: 1024 * 1024 * 1024
                 });
             }
 
             // check if the MOOSE app ran successfully
             if (moose.status != 0)
-                throw new Error('Failed to run MOOSE to obtain syntax data');
+                throw new Error(`Failed to run MOOSE to obtain syntax data ${moose.status} ${moose.signal}`);
 
             // clip the JSON from the output using the markers
+            const out: string = moose.stdout.toString();
             const beginMarker = '**START JSON DATA**\n';
             const endMarker = '**END JSON DATA**\n';
-            let begin = moose.stdout.indexOf(beginMarker);
-            let end = moose.stdout.lastIndexOf(endMarker);
+            let begin = out.indexOf(beginMarker);
+            let end = out.lastIndexOf(endMarker);
 
             if (begin < 0 || end < begin) {
                 throw new Error('Markers not found');
             }
 
             // parse the JSON
-            jsonData = moose.stdout.slice(begin + beginMarker.length, end).toString();
+            jsonData = out.slice(begin + beginMarker.length, end);
         } else {
             try {
                 // read offline syntax dump (./moose-opt --json > offlinesyntax)
@@ -276,14 +279,14 @@ function rebuildSyntax(app: AppDir, cacheFile: string | null, w: MooseSyntax): M
             } catch (e) {
                 throw new Error(`Failed to load offline syntax file '${offlineSyntax}'`);
             }
+        }
 
-            // parse the JSON
-            w = JSON.parse(jsonData);
+        // parse the JSON
+        w = JSON.parse(jsonData);
 
-            // write the JSON cache
-            if (cacheFile != null) {
-                fs.writeFile(cacheFile, JSON.stringify(w), function () { });
-            }
+        // write the JSON cache
+        if (cacheFile != null) {
+            fs.writeFile(cacheFile, JSON.stringify(w), function () { });
         }
 
         notifyStopWork();
@@ -405,7 +408,7 @@ function computeFileNameCompletion(wildcards: string[], request: TextDocumentPos
     var completions: CompletionItem[], dir: string[], i, len, name;
 
     let uri: URI = URI.parse(request.textDocument.uri);
-    let filePath: string = uri.fsPath;
+    let filePath: string = Utils.dirname(uri).fsPath;
 
     dir = fs.readdirSync(filePath);
     completions = [];
@@ -644,7 +647,7 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
     var addedWildcard, blockPostfix, blockPrefix, bufferPosition: Position, completion: string, completions: CompletionItem[],
         defaultValue, hasSpace, i, icon: CompletionItemKind,
         isQuoted, j, len, len1, line: string, match, name, param: MooseSyntax, paramName,
-        partialPath:string[], postLine, prefix, ref, ref1;
+        partialPath: string[], postLine, prefix, ref, ref1;
 
     completions = [];
     bufferPosition = request.position;
@@ -773,7 +776,7 @@ export function getSuggestions(request: TextDocumentPositionParams): CompletionI
     let uri: URI = URI.parse(request.textDocument.uri);
     if (uri.scheme != 'file')
         return [];
-    let filePath: string = uri.fsPath;
+    let filePath: string = Utils.dirname(uri).fsPath;
 
     // lookup application for current input file (cached)
     if (offlineSyntax) {
