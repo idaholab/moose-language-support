@@ -7,6 +7,7 @@
 import {
     TextDocumentPositionParams,
     TextDocuments,
+    Position,
     CompletionItem,
     CompletionItemKind,
     CompletionItemTag,
@@ -19,7 +20,11 @@ import {
 
 import {
     MooseLanguageSettings,
-    MooseSyntax
+    MooseSyntax,
+    ParseTree,
+    serverError,
+    serverStartWork,
+    serverStopWork
 } from './interfaces';
 
 import * as Parser from 'web-tree-sitter';
@@ -99,11 +104,21 @@ let offlineSyntax: string | null = null;
 //     }
 // }
 
+function notifyError(msg: string) {
+    myConnection.sendNotification(serverError, msg);
+}
+
+function notifyStartWork() {
+    myConnection.sendNotification(serverStartWork);
+}
+function notifyStopWork() {
+    myConnection.sendNotification(serverStopWork);
+}
+
 function findApp(filePath: string): AppDir | null {
     var fallbackMooseDir, file, fileTime, fileWithPath, i, isWSL, len, match, matches: AppDir[], previous_path, ref, searchPath, stats, wslDistro, wslPath;
     if (filePath == null) {
-        // vscode.window.showErrorMessage('File not saved, nowhere to search for MOOSE syntax data.');
-
+        notifyError('File not saved, nowhere to search for MOOSE syntax data.');
         return null;
     }
     if (filePath in appDirs) {
@@ -167,7 +182,7 @@ function findApp(filePath: string): AppDir | null {
             }
             if (!mySettings.ignoreMooseNotFoundError) {
                 // otherwise pop up an error notification (if not disabled) end give up
-                // vscode.window.showErrorMessage('No MOOSE application executable found.');
+                notifyError('No MOOSE application executable found.');
             }
             return null;
         }
@@ -216,8 +231,8 @@ function loadSyntax(app: AppDir): MooseSyntax {
 
 // rebuild syntax
 function rebuildSyntax(app: AppDir, cacheFile: string | null, w: MooseSyntax): MooseSyntax {
-    // open notification about syntax generation
-    //var workingNotification = vscode.window.setStatusBarMessage('Rebuilding MOOSE syntax data.');
+    // indicate to the client that the server is busy
+    notifyStartWork();
 
     var args: Array<string>, jsonData: string, moose;
 
@@ -271,11 +286,11 @@ function rebuildSyntax(app: AppDir, cacheFile: string | null, w: MooseSyntax): M
             }
         }
 
-        //workingNotification.dispose();
+        notifyStopWork();
         return w;
     } catch (error: any) {
-        //workingNotification.dispose();
-        //vscode.window.showErrorMessage(error['message']);
+        notifyStopWork();
+        notifyError(error['message']);
         return {};
     }
 }
@@ -386,9 +401,12 @@ function getTypes(configPath: string[], w: MooseSyntax): CompletionItem[] {
 }
 
 // Filename completions (TODO, respect wildcards)
-function computeFileNameCompletion(wildcards: string[], editor) {
-    var completions: CompletionItem[], dir, filePath, i, len, name;
-    filePath = path.dirname(editor.getPath());
+function computeFileNameCompletion(wildcards: string[], request: TextDocumentPositionParams): CompletionItem[] {
+    var completions: CompletionItem[], dir: string[], i, len, name;
+
+    let uri: URI = URI.parse(request.textDocument.uri);
+    let filePath: string = uri.fsPath;
+
     dir = fs.readdirSync(filePath);
     completions = [];
     for (i = 0, len = dir.length; i < len; i++) {
@@ -403,14 +421,14 @@ function computeFileNameCompletion(wildcards: string[], editor) {
 
 // checks if this is a vector type build the vector cpp_type name for a
 // given single type (checks for gcc and clang variants)
-function isVectorOf(yamlType: string, type: string) {
-    var match;
-    return (match = stdVector.exec(yamlType)) && match[2] === type;
+function isVectorOf(yamlType: string, type: string): boolean {
+    var match = stdVector.exec(yamlType);
+    return !!match && (match[2] === type);
 }
 
 // build the suggestion list for parameter values (editor is passed in
 // to build the variable list)
-function computeValueCompletion(param: MooseSyntax, editor, isQuoted: boolean, hasSpace: boolean, w: MooseSyntax): CompletionItem[] {
+function computeValueCompletion(param: MooseSyntax, request: TextDocumentPositionParams, isQuoted: boolean, hasSpace: boolean, w: MooseSyntax): CompletionItem[] {
     var basicType, blockList: string[], completions: CompletionItem[], i, len,
         option, output, ref, singleOK: boolean, vectorOK: boolean;
 
@@ -421,7 +439,7 @@ function computeValueCompletion(param: MooseSyntax, editor, isQuoted: boolean, h
     // };
 
     blockList = [];
-    var buildBlockList = function (node : MooseSyntax, oldPath?: string) {
+    var buildBlockList = function (node: MooseSyntax, oldPath?: string) {
         var block, c, i, len, newPath, ref, results: CompletionItem[];
         ref = node.children;
         results = [];
@@ -477,10 +495,10 @@ function computeValueCompletion(param: MooseSyntax, editor, isQuoted: boolean, h
 
     basicType = match ? match[1] : param.cpp_type;
     if (basicType === 'FileName') {
-        return computeFileNameCompletion(['*'], editor);
+        return computeFileNameCompletion(['*'], request);
     }
     if (basicType === 'MeshFileName') {
-        return computeFileNameCompletion(['*.e'], editor);
+        return computeFileNameCompletion(['*.e'], request);
     }
     if (basicType === 'OutputName') {
         return (function () {
@@ -536,10 +554,11 @@ function getPrefix(line: string) {
 }
 
 // determine the active input file path at the current position
-function getCurrentConfigPath(editor, position): ConfigPath {
-    var c, i, len, node: MooseSyntax, ref, ret: ConfigPath, sourcePath: string[];
-    
-    function recurseCurrentConfigPath(node: MooseSyntax, sourcePath :string[] = []) : [MooseSyntax, string[]] {
+function getCurrentConfigPath(request: TextDocumentPositionParams): ConfigPath {
+    var c, i, len, node: ParseTree, ref, ret: ConfigPath, sourcePath: string[];
+    var position: Position = request.position;
+
+    function recurseCurrentConfigPath(node: ParseTree, sourcePath: string[] = []): [ParseTree, string[]] {
         var c, c2, ce, cs, i, j, len, len1, ref, ref1;
         ref = node.children;
         for (i = 0, len = ref.length; i < len; i++) {
@@ -551,15 +570,15 @@ function getCurrentConfigPath(editor, position): ConfigPath {
             cs = c.startPosition;
             ce = c.endPosition;
             // outside row range
-            if (position.row < cs.row || position.row > ce.row) {
+            if (position.line < cs.row || position.line > ce.row) {
                 continue;
             }
             // in starting row but before starting column
-            if (position.row === cs.row && position.column < cs.column) {
+            if (position.line === cs.row && position.character < cs.column) {
                 continue;
             }
             // in ending row but after ending column
-            if (position.row === ce.row && position.column > ce.column) {
+            if (position.line === ce.row && position.character > ce.column) {
                 continue;
             }
             // if the block does not contain a valid path subnode we give up
@@ -568,7 +587,7 @@ function getCurrentConfigPath(editor, position): ConfigPath {
             }
             // first block_path node
             if (c.type !== 'ERROR') {
-                if (c.children[1].startPosition.row >= position.row) {
+                if (c.children[1].startPosition.row >= position.line) {
                     continue;
                 }
                 sourcePath = sourcePath.concat(c.children[1].text.replace(/^\.\//, '').split('/'));
@@ -577,7 +596,7 @@ function getCurrentConfigPath(editor, position): ConfigPath {
                 // if we are in an ERROR block (unclosed) we should try to pick more path elements
                 for (j = 0, len1 = ref1.length; j < len1; j++) {
                     c2 = ref1[j];
-                    if (c2.type !== 'block_path' || c2.startPosition.row >= position.row) {
+                    if (c2.type !== 'block_path' || c2.startPosition.row >= position.line) {
                         continue;
                     }
                     sourcePath = sourcePath.concat(c2.text.replace(/^\.\//, '').split('/'));
@@ -622,24 +641,43 @@ function isParameterCompletion(line: string): boolean {
 
 // w contains the syntax applicable to the current file
 function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax): CompletionItem[] {
-    var addedWildcard, blockPostfix, blockPrefix, bufferPosition, completion: string, completions: CompletionItem[],
-         defaultValue, editor, hasSpace, i, icon: CompletionItemKind,
-        isQuoted, j, len, len1, line, match, name, param: MooseSyntax, paramName,
-        partialPath, postLine, prefix, ref, ref1;
-    ({ editor, bufferPosition } = request);
+    var addedWildcard, blockPostfix, blockPrefix, bufferPosition: Position, completion: string, completions: CompletionItem[],
+        defaultValue, hasSpace, i, icon: CompletionItemKind,
+        isQuoted, j, len, len1, line: string, match, name, param: MooseSyntax, paramName,
+        partialPath:string[], postLine, prefix, ref, ref1;
+
     completions = [];
+    bufferPosition = request.position;
+
     // current line up to the cursor position
-    line = editor.getTextInRange([[bufferPosition.row, 0], bufferPosition]);
+    const document = myDocuments.get(request.textDocument.uri);
+    if (!document) {
+        return [];
+    }
+    line = document.getText({
+        start: { line: bufferPosition.line, character: 0 },
+        end: bufferPosition
+    });
     prefix = getPrefix(line);
+
     // get the type pseudo path (for the yaml)
-    var cp = getCurrentConfigPath(editor, bufferPosition);
+    var cp = getCurrentConfigPath(request);
+
     // for empty [] we suggest blocks
     if (isOpenBracketPair(line)) {
         // get a partial path
-        partialPath = line.match(insideBlockTag)[1].replace(/^\.\//, '').split('/');
-        partialPath.pop();
+        var lineMatch = line.match(insideBlockTag);
+        if (lineMatch) {
+            partialPath = lineMatch[1].replace(/^\.\//, '').split('/');
+            partialPath.pop();
+        } else { partialPath = []; }
+
         // get the postfix (to determine if we need to append a ] or not)
-        postLine = editor.getTextInRange([bufferPosition, [bufferPosition.row, bufferPosition.column + 1]]);
+        postLine = document.getText({
+            start: bufferPosition,
+            end: { line: bufferPosition.line, character: bufferPosition.character + 1 }
+        });
+
         blockPostfix = postLine.length > 0 && postLine[0] === ']' ? '' : ']';
         // handle relative paths
         blockPrefix = cp.configPath.length > 0 ? '[./' : '[';
@@ -718,7 +756,7 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
         if (paramName === 'type' && param.cpp_type === 'std::string') {
             completions = getTypes(cp.configPath, w);
         } else {
-            completions = computeValueCompletion(param, editor, isQuoted, hasSpace, w);
+            completions = computeValueCompletion(param, request, isQuoted, hasSpace, w);
         }
     }
     // set the custom prefix
