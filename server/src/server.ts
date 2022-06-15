@@ -200,7 +200,7 @@ connection.onDidChangeWatchedFiles(_change => {
 connection.onCompletion(
     (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
         //const settings = getDocumentSettings(_textDocumentPosition.textDocument.uri);
-        return provider.getSuggestions(documents, _textDocumentPosition, globalSettings);
+        return provider.getSuggestions(_textDocumentPosition);
 
         // // The pass parameter contains the position of the text document in
         // // which code complete got requested. For the example we ignore this
@@ -234,6 +234,9 @@ connection.onCompletionResolve(
         return item;
     }
 );
+
+// pass references to these objects
+provider.init(globalSettings, documents, connection);
 
 // Make the text document manager listen on the connection
 // for open, change and close text document events
