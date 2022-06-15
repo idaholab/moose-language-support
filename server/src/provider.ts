@@ -179,80 +179,69 @@ function loadSyntax(app) {
 function rebuildSyntax(app, cacheFile, w) {
     var appDate, appFile, appName, appPath, appWSL, mooseJSON, workingNotification;
     ({ appPath, appName, appFile, appDate, appWSL } = app);
+
     // open notification about syntax generation
     workingNotification = vscode.window.setStatusBarMessage('Rebuilding MOOSE syntax data.');
-    
-    // rebuild the syntax by running moose with --json
-    mooseJSON = new Promise((resolve, reject) => {
-        var args, jsonData, moose;
-        jsonData = '';
-        // either run moose or use the offlineSyntax file
+
+    var args: Array<string>, jsonData: string, moose;
+
+    // either run moose or use the offlineSyntax file
+    try {
         if (appFile != null) {
             args = ['--json'];
             if (mySettings.allowTestObjects) {
                 args.push('--allow-test-objects');
             }
             if (appWSL) {
-                moose = cp.spawn('wsl', ['-d', appWSL, appFile].concat(args, {
+                moose = cp.spawnSync('wsl', ['-d', appWSL, appFile].concat(args, {
                     stdio: ['pipe', 'pipe', 'ignore']
                 }));
             } else {
-                moose = cp.spawn(appFile, args, {
+                moose = cp.spawnSync(appFile, args, {
                     stdio: ['pipe', 'pipe', 'ignore']
                 });
             }
-            moose.stdout.on('data', function (data) {
-                return jsonData += data;
-            });
-            return moose.on('close', function (code, signal) {
-                if (code === 0) {
-                    return resolve(jsonData);
-                } else {
-                    return reject({
-                        text: 'Failed to run MOOSE to obtain syntax data',
-                        code: code,
-                        signal: signal,
-                        output: jsonData,
-                        appFile: appFile
-                    });
-                }
-            });
+
+            // check if the MOOSE app ran successfully
+            if (moose.status != 0)
+                throw 'Failed to run MOOSE to obtain syntax data';
+
+            // clip the JSON from the output using the markers
+            const beginMarker = '**START JSON DATA**\n';
+            const endMarker = '**END JSON DATA**\n';
+            let begin = moose.stdout.indexOf(beginMarker);
+            let end = moose.stdout.lastIndexOf(endMarker);
+
+            if (begin < 0 || end < begin) {
+                throw 'Markers not found';
+            }
+
+            // parse the JSON
+            jsonData = moose.stdout.slice(begin + beginMarker.length, end); // Wat?!
         } else {
-            return fs.readFile(appPath, 'utf8', (error, content) => {
-                if (error != null) {
-                    reject({
-                        text: 'Failed to load offline syntax file',
-                        name: this.offlineSyntax
-                    });
-                }
-                return resolve(content);
-            });
+            try {
+                // read offline syntax dump (./moose-opt --json > offlinesyntax)
+                jsonData = fs.readFileSync(appPath, 'utf8');
+            } catch (e) {
+                throw `Failed to load offline syntax file '${offlineSyntax}'`;
+            }
+
+            // parse the JSON
+            w.json = JSON.parse(jsonData);
+
+            // write the JSON cache
+            if (cacheFile != null) {
+                fs.writeFile(cacheFile, JSON.stringify(w.json), function () { });
+            }
         }
-    }).then(function (result: string) {
-        var begin, beginMarker, end, endMarker;
-        beginMarker = '**START JSON DATA**\n';
-        endMarker = '**END JSON DATA**\n';
-        begin = result.indexOf(beginMarker);
-        end = result.lastIndexOf(endMarker);
-        if (begin < 0 || end < begin) {
-            throw 'markers not found';
-        }
-        return JSON.parse(result.slice(begin + beginMarker.length, +(end - 1) + 1 || 9e9));
-    }).then(function (result) {
-        w.json = result;
-        if (cacheFile != null) {
-            fs.writeFile(cacheFile, JSON.stringify(w.json), function () { });
-        }
+
         workingNotification.dispose();
-        delete w.promise;
         return w;
-    }).catch(function (error) {
+    } catch (error) {
         workingNotification.dispose();
         console.log(error);
-        vscode.window.setStatusBarMessage(error != null ? error.text : "Failed to obtain syntax data");
-    });
-
-    return w.promise = mooseJSON;
+        vscode.window.showErrorMessage(error != null ? error.text : "Failed to obtain syntax data");
+    }
 }
 
 export function getSuggestions(request: TextDocumentPositionParams, settings) {
