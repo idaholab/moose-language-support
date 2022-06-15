@@ -183,6 +183,11 @@
 					],
 					"default": "off",
 					"description": "Traces the communication between VS Code and the language server."
+				},
+				"languageServerMoose.hideDeprecatedParams": {
+					"type": "boolean",
+					"default": false,
+					"description": "Omit deprecated parameters from autocompletion."
 				}
 			}
 		}

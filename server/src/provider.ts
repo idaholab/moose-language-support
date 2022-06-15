@@ -1,5 +1,8 @@
 import {
-    TextDocumentPositionParams
+    TextDocumentPositionParams,
+    CompletionItem,
+    CompletionItemKind,
+    CompletionItemTag
 } from 'vscode-languageserver/node';
 
 import * as Parser from 'web-tree-sitter';
@@ -13,10 +16,10 @@ import { URI } from 'vscode-uri'
 
 // while the Parser is initializing and loading the language, we block its use
 var parser: Parser | null = null;
-let tree = null;
+let tree: any = null;
 
 Parser.init().then(function () {
-    return Parser.Language.load(path.join(__dirname, './tree-sitter-hit.wasm')).then(function (lang) {
+    return Parser.Language.load(path.join(__dirname, '../tree-sitter-hit.wasm')).then(function (lang) {
         parser = new Parser();
         return parser.setLanguage(lang);
     });
@@ -49,7 +52,7 @@ let offlineSyntax = null;
 // Clear the cache for the app associated with current file.
 // This is made available as a VSCode command.
 export function clearCache() {
-    var appPath, editor, filePath;
+    var appPath : string, editor, filePath : string;
     //editor = atom.workspace.getActiveTextEditor(); TODO!
     filePath = path.dirname(editor.getPath());
     if (filePath in appDirs) {
@@ -136,7 +139,7 @@ function findApp(filePath: string): string | null {
 }
 
 // fetch JSON syntax data
-function loadSyntax(app) {
+function loadSyntax(app): Object {
     var appDate, appFile, appName, appPath, cacheDate, cacheDir, cacheFile, loadCache, w;
     ({ appPath, appName, appFile, appDate } = app);
     // prepare entry in the syntax warehouse
@@ -166,7 +169,8 @@ function loadSyntax(app) {
                     // TODO: rebuild syntax if loading the cache fails
                     vscode.window.showWarningMessage('Failed to load cached syntax (probably a legacy cache file).');
                     delete syntaxWarehouse[appPath];
-                    return fs.unlink(cacheFile, function () { });
+                    fs.unlink(cacheFile, function () { });
+                    return {};
                 };
             }
         }
@@ -244,12 +248,434 @@ function rebuildSyntax(app, cacheFile, w) {
     }
 }
 
-export function getSuggestions(request: TextDocumentPositionParams, settings) {
-    var dir, loaded, w;
+function prepareCompletion(request, w) {
+    // tree update
+    if (parser == null) {
+        return;
+    }
+    tree = parser.parse(request.editor.getBuffer().getText());
+    return computeCompletion(request, w);
+}
+
+// get the node in the JSON stucture for the current block level
+function getSyntaxNode(configPath, w) {
+    var b, i, len, p, ref, ref1;
+    // no parameters at the root
+    if (configPath.length === 0) {
+        return void 0;
+    }
+    // traverse subblocks
+    b = w.json.blocks[configPath[0]];
+    ref = configPath.slice(1);
+    for (i = 0, len = ref.length; i < len; i++) {
+        p = ref[i];
+        if (b != null) {
+            if (b.subblocks) {
+                b = b.subblocks[p];
+            }
+            else {
+                b = b.star;
+            }
+        }
+        if (b == null)
+            return null;
+    }
+    return b;
+}
+
+// get a list of valid subblocks
+function getSubblocks(configPath, w) {
+    var b, ret;
+    // get top level blocks
+    if (configPath.length === 0) {
+        return Object.keys(w.json.blocks);
+    }
+    // traverse subblocks
+    b = getSyntaxNode(configPath, w);
+    ret = Object.keys((b != null ? b.subblocks : void 0) || {});
+    if (b != null ? b.star : void 0) {
+        ret.push('*');
+    }
+    return ret.sort();
+}
+
+// get a list of parameters for the current block
+// if the type parameter is known add in class specific parameters
+function getParameters(configPath, explicitType, w) {
+    var b, currentType, n, ref, ref1, ref2, ret, t;
+    ret = {};
+    b = getSyntaxNode(configPath, w);
+    // handle block level action parameters first
+    for (n in b != null ? b.actions : void 0) {
+        Object.assign(ret, b.actions[n].parameters);
+    }
+    // if no type is explicitly set check if a default value exists
+    currentType = explicitType || (ret != null ? (ref = ret.type) != null ? ref.default : void 0 : void 0);
+    // if the type is known add the specific parameters
+    t = (b != null ? (ref1 = b.subblock_types) != null ? ref1[currentType] : void 0 : void 0) || (b != null ? (ref2 = b.types) != null ? ref2[currentType] : void 0 : void 0);
+    Object.assign(ret, t != null ? t.parameters : void 0);
+    return ret;
+}
+
+// get a list of possible completions for the type parameter at the current block level
+function getTypes(configPath, w): CompletionItem[] {
+    var b, n, ret;
+    ret = [];
+    b = getSyntaxNode(configPath, w);
+    for (n in b != null ? b.subblock_types : void 0) {
+        ret.push({
+            label: n,
+            documentation: b.subblock_types[n].description,
+            kind: CompletionItemKind.TypeParameter
+        });
+    }
+    for (n in b != null ? b.types : void 0) {
+        ret.push({
+            label: n,
+            documentation: b.types[n].description,
+            kind: CompletionItemKind.TypeParameter
+        });
+    }
+    return ret;
+}
+
+// Filename completions
+function computeFileNameCompletion(wildcards, editor) {
+    var completions: CompletionItem[], dir, filePath, i, len, name;
+    filePath = path.dirname(editor.getPath());
+    dir = fs.readdirSync(filePath);
+    completions = [];
+    for (i = 0, len = dir.length; i < len; i++) {
+        name = dir[i];
+        completions.push({
+            label: name,
+            kind: CompletionItemKind.File
+        });
+    }
+    return completions;
+}
+
+// checks if this is a vector type build the vector cpp_type name for a
+// given single type (checks for gcc and clang variants)
+function isVectorOf(yamlType, type) {
+    var match;
+    return (match = stdVector.exec(yamlType)) && match[2] === type;
+}
+
+// build the suggestion list for parameter values (editor is passed in
+// to build the variable list)
+function computeValueCompletion(param, editor, isQuoted, hasSpace, w): CompletionItem[] {
+    var basicType, blockList, buildBlockList, completions, hasType, i, len, match, matches, option, output, ref, singleOK, vectorOK;
+    singleOK = !hasSpace;
+    vectorOK = isQuoted || !hasSpace;
+    hasType = (type) => {
+        return (param.cpp_type === type && singleOK) || (isVectorOf(param.cpp_type, type) && vectorOK);
+    };
+    blockList = [];
+    buildBlockList = function (node, oldPath) {
+        var block, c, i, len, newPath, ref, results: CompletionItem[];
+        ref = node.children;
+        results = [];
+        for (i = 0, len = ref.length; i < len; i++) {
+            c = ref[i];
+            if (c.type === 'top_block' || c.type === 'block') {
+                block = c.children[1].text;
+                if (block.slice(0, 2) === './') {
+                    block = block.slice(2);
+                }
+                newPath = (oldPath ? oldPath + '/' : '') + block;
+                blockList.push(newPath);
+                results.push(buildBlockList(c, newPath));
+            } else {
+                results.push({ label: 'void'}); // TODO: why did I push undefined here?
+            }
+        }
+        return results;
+    };
+    if ((param.cpp_type === 'bool' && singleOK) || (isVectorOf(param.cpp_type, 'bool') && vectorOK)) {
+        return [
+            {
+                label: 'true',
+                kind: CompletionItemKind.Value
+            },
+            {
+                label: 'false',
+                kind: CompletionItemKind.Value
+            }
+        ];
+    }
+    if ((param.cpp_type === 'MooseEnum' && singleOK) || (param.cpp_type === 'MultiMooseEnum' && vectorOK)) {
+        if (param.options != null) {
+            completions = [];
+            ref = param.options.split(' ');
+            for (i = 0, len = ref.length; i < len; i++) {
+                option = ref[i];
+                completions.push({
+                    label: option,
+                    kind: CompletionItemKind.EnumMember
+                });
+            }
+            return completions;
+        }
+    }
+    match = param.cpp_type.match(/^std::vector<([^>]+)>$/);
+    if ((match && !vectorOK) || (!match && !singleOK)) {
+        return [];
+    }
+    basicType = match ? match[1] : param.cpp_type;
+    if (basicType === 'FileName') {
+        return computeFileNameCompletion(['*'], editor);
+    }
+    if (basicType === 'MeshFileName') {
+        return computeFileNameCompletion(['*.e'], editor);
+    }
+    if (basicType === 'OutputName') {
+        return (function () {
+            var j, len1, ref1, results;
+            ref1 = ['exodus', 'csv', 'console', 'gmv', 'gnuplot', 'nemesis', 'tecplot', 'vtk', 'xda', 'xdr'];
+            results = [];
+            for (j = 0, len1 = ref1.length; j < len1; j++) {
+                output = ref1[j];
+                results.push({
+                    label: output,
+                    kind: CompletionItemKind.Folder
+                });
+            }
+            return results;
+        })();
+    }
+    // automatically generated matches from registerSyntaxType
+    if (basicType in w.json.global.associated_types) {
+        buildBlockList(tree.rootNode);
+        completions = [];
+        matches = new Set(w.json.global.associated_types[basicType]);
+        matches.forEach(function (match) {
+            var block, j, key, len1, results;
+            if (match.slice(-2) === '/*') {
+                key = match.slice(0, -1);
+                results = [];
+                for (j = 0, len1 = blockList.length; j < len1; j++) {
+                    block = blockList[j];
+                    if (block.slice(0, +(key.length - 1) + 1 || 9e9) === key) {
+                        results.push(completions.push({
+                            label: block.slice(key.length),
+                            kind: CompletionItemKind.Field
+                        }));
+                    } else {
+                        results.push(void 0);
+                    }
+                }
+                return results;
+            }
+        });
+        return completions;
+    }
+    return [];
+}
+
+function getPrefix(line) {
+    var ref, regex;
+    // Whatever your prefix regex might be
+    regex = /[\w0-9_\-.\/\[]+$/;
+    // Match the regex to the line, and return the match
+    return ((ref = line.match(regex)) != null ? ref[0] : void 0) || '';
+}
+
+// determine the active input file path at the current position
+function getCurrentConfigPath(editor, position) {
+    var c, i, len, node, recurseCurrentConfigPath, ref, ret, sourcePath;
+    recurseCurrentConfigPath = function (node, sourcePath = []) {
+        var c, c2, ce, cs, i, j, len, len1, ref, ref1;
+        ref = node.children;
+        for (i = 0, len = ref.length; i < len; i++) {
+            c = ref[i];
+            if (c.type !== 'top_block' && c.type !== 'block' && c.type !== 'ERROR') {
+                continue;
+            }
+            // check if we are inside a block or top_block
+            cs = c.startPosition;
+            ce = c.endPosition;
+            // outside row range
+            if (position.row < cs.row || position.row > ce.row) {
+                continue;
+            }
+            // in starting row but before starting column
+            if (position.row === cs.row && position.column < cs.column) {
+                continue;
+            }
+            // in ending row but after ending column
+            if (position.row === ce.row && position.column > ce.column) {
+                continue;
+            }
+            // if the block does not contain a valid path subnode we give up
+            if (c.children.length < 2 || c.children[1].type !== 'block_path') {
+                return [c.parent, sourcePath];
+            }
+            // first block_path node
+            if (c.type !== 'ERROR') {
+                if (c.children[1].startPosition.row >= position.row) {
+                    continue;
+                }
+                sourcePath = sourcePath.concat(c.children[1].text.replace(/^\.\//, '').split('/'));
+            } else {
+                ref1 = c.children;
+                // if we are in an ERROR block (unclosed) we should try to pick more path elements
+                for (j = 0, len1 = ref1.length; j < len1; j++) {
+                    c2 = ref1[j];
+                    if (c2.type !== 'block_path' || c2.startPosition.row >= position.row) {
+                        continue;
+                    }
+                    sourcePath = sourcePath.concat(c2.text.replace(/^\.\//, '').split('/'));
+                }
+            }
+            return recurseCurrentConfigPath(c, sourcePath);
+        }
+        return [node, sourcePath];
+    };
+    [node, sourcePath] = recurseCurrentConfigPath(tree.rootNode);
+    ret = {
+        configPath: sourcePath,
+        explicitType: null
+    };
+    // found a block we can check for a type parameter
+    if (node !== null) {
+        ref = node.children;
+        for (i = 0, len = ref.length; i < len; i++) {
+            c = ref[i];
+            if (c.type !== 'parameter_definition' || c.children.length < 3 || c.children[0].text !== 'type') {
+                continue;
+            }
+            ret.explicitType = c.children[2].text;
+            break;
+        }
+    }
+    // return value
+    return ret;
+}
+
+// check if there is an square bracket pair around the cursor
+function isOpenBracketPair(line): boolean {
+    return insideBlockTag.test(line);
+}
+
+// check if the current line is a type parameter
+function isParameterCompletion(line): boolean {
+    return parameterCompletion.test(line);
+}
+
+// w contains the syntax applicable to the current file
+function computeCompletion(request, w) {
+    var addedWildcard, blockPostfix, blockPrefix, bufferPosition, completion, completions, configPath, defaultValue, editor, explicitType, hasSpace, i, icon : CompletionItemKind, isQuoted, j, len, len1, line, match, name, param, paramName, partialPath, postLine, prefix, ref, ref1;
+    ({ editor, bufferPosition } = request);
+    completions = [];
+    // current line up to the cursor position
+    line = editor.getTextInRange([[bufferPosition.row, 0], bufferPosition]);
+    prefix = getPrefix(line);
+    // get the type pseudo path (for the yaml)
+    ({ configPath, explicitType } = getCurrentConfigPath(editor, bufferPosition));
+    // for empty [] we suggest blocks
+    if (isOpenBracketPair(line)) {
+        // get a partial path
+        partialPath = line.match(insideBlockTag)[1].replace(/^\.\//, '').split('/');
+        partialPath.pop();
+        // get the postfix (to determine if we need to append a ] or not)
+        postLine = editor.getTextInRange([bufferPosition, [bufferPosition.row, bufferPosition.column + 1]]);
+        blockPostfix = postLine.length > 0 && postLine[0] === ']' ? '' : ']';
+        // handle relative paths
+        blockPrefix = configPath.length > 0 ? '[./' : '[';
+        // add block close tag to suggestions
+        if (configPath.length > 0 && partialPath.length === 0) {
+            completions.push({
+                label: '..',
+                insertText: '[../' + blockPostfix
+            });
+        }
+        configPath = configPath.concat(partialPath);
+        ref = getSubblocks(configPath, w);
+        for (i = 0, len = ref.length; i < len; i++) {
+            completion = ref[i];
+            // add to suggestions if it is a new suggestion
+            if (completion === '*') {
+                if (!addedWildcard) {
+                    completions.push({
+                        label: '*',
+                        insertText: blockPrefix + '${1:name}' + blockPostfix
+                    });
+                    addedWildcard = true;
+                }
+            } else if (completion !== '') {
+                if ((completions.findIndex(function (c) {
+                    return c.displayText === completion;
+                })) < 0) {
+                    completions.push({
+                        label: completion,
+                        insertText: blockPrefix + [...partialPath, completion].join('/') + blockPostfix
+                    });
+                }
+            }
+        }
+        // suggest parameters
+    } else if (isParameterCompletion(line)) {
+        ref1 = getParameters(configPath, explicitType, w);
+        // loop over valid parameters
+        for (name in ref1) {
+            param = ref1[name];
+            // skip deprecated params
+            if (mySettings.hideDeprecatedParams && param.deprecated) {
+                continue;
+            }
+            defaultValue = param.default || '';
+            if (defaultValue.indexOf(' ') >= 0) {
+                defaultValue = `'${defaultValue}'`;
+            }
+            if (param.cpp_type === 'bool') {
+                if (defaultValue === '0') {
+                    defaultValue = 'false';
+                }
+                if (defaultValue === '1') {
+                    defaultValue = 'true';
+                }
+            }
+
+            icon = param.name === 'type' ? CompletionItemKind.TypeParameter : param.required ? CompletionItemKind.Constructor : param.default != null ? CompletionItemKind.Variable : CompletionItemKind.Field;
+            completions.push({
+                label: param.name,
+                insertText: param.name + ' = ${1:' + defaultValue + '}',
+                documentation: param.description,
+                kind: icon,
+                tags: param.deprecated ? [CompletionItemTag.Deprecated] : []
+            });
+        }
+    } else if (!!(match = otherParameter.exec(line))) {
+        paramName = match[1];
+        isQuoted = match[2][0] === "'";
+        hasSpace = !!match[3];
+        param = (getParameters(configPath, explicitType, w))[paramName];
+        if (param == null) {
+            return [];
+        }
+        // this takes care of 'broken' type parameters like Executioner/Qudadrature/type
+        if (paramName === 'type' && param.cpp_type === 'std::string') {
+            completions = getTypes(configPath, w);
+        } else {
+            completions = computeValueCompletion(param, editor, isQuoted, hasSpace, w);
+        }
+    }
+    // set the custom prefix
+    for (j = 0, len1 = completions.length; j < len1; j++) {
+        completion = completions[j];
+        completion.replacementPrefix = prefix;
+    }
+    return completions;
+}
+
+
+export function getSuggestions(request: TextDocumentPositionParams, settings): CompletionItem[] {
+    var dir, loaded, w; 
 
     let uri: URI = URI.parse(request.textDocument.uri);
     if (uri.scheme != 'file')
-        return;
+        return [];
     let filePath: string = uri.fsPath;
 
     // cache settings
@@ -290,6 +716,6 @@ export function getSuggestions(request: TextDocumentPositionParams, settings) {
     }
 
     w = syntaxWarehouse[dir.appPath];
-    return this.prepareCompletion(request, w);
+    return prepareCompletion(request, w);
 }
 

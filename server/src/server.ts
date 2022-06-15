@@ -83,12 +83,18 @@ interface MooseLanguageSettings {
     maxNumberOfProblems: number;
     fallbackMooseDir: string;
     ignoreMooseNotFoundError: boolean;
+    hideDeprecatedParams: boolean;
 }
 
 // The global settings, used when the `workspace/configuration` request is not supported by the client.
 // Please note that this is not the case when using this server with the client provided in this example
 // but could happen with other clients.
-const defaultSettings: MooseLanguageSettings = { maxNumberOfProblems: 1000, fallbackMooseDir: '', ignoreMooseNotFoundError: false };
+const defaultSettings: MooseLanguageSettings = {
+    maxNumberOfProblems: 1000,
+    fallbackMooseDir: '',
+    ignoreMooseNotFoundError: false,
+    hideDeprecatedParams: false
+};
 let globalSettings: MooseLanguageSettings = defaultSettings;
 
 // Cache the settings of all open documents
