@@ -11,7 +11,8 @@ import {
     CompletionItem,
     CompletionItemKind,
     CompletionItemTag,
-    Connection
+    Connection,
+    InsertTextFormat
 } from 'vscode-languageserver/node';
 
 import {
@@ -110,10 +111,9 @@ export function notifyError(msg: string) {
 }
 
 export function notifyDebug(...items: any[]) {
-    var msgs: string[] = [], msg : string;
-    for (var i = 0; i < items.length; ++i)
-    {
-        var item : any = items[i];
+    var msgs: string[] = [], msg: string;
+    for (var i = 0; i < items.length; ++i) {
+        var item: any = items[i];
         if (typeof item == 'string')
             msg = item;
         else if (typeof item == 'function')
@@ -365,12 +365,9 @@ function getSyntaxNode(configPath: string[], w: MooseSyntax): MooseSyntax | null
             }
             else {
                 b = b.star;
-                notifyDebug("b.star ", b);
             }
         }
-        if (b == null)
-        {
-            notifyDebug("b == null");
+        if (b == null) {
             return null;
         }
     }
@@ -409,7 +406,6 @@ function getParameters(cp: ConfigPath, w: MooseSyntax): MooseSyntax {
     // if the type is known add the specific parameters
     t = (b != null ? (ref1 = b.subblock_types) != null ? ref1[currentType] : void 0 : void 0) || (b != null ? (ref2 = b.types) != null ? ref2[currentType] : void 0 : void 0);
     Object.assign(ret, t != null ? t.parameters : void 0);
-    notifyDebug(cp, ret);
     return ret;
 }
 
@@ -663,7 +659,6 @@ function getCurrentConfigPath(request: TextDocumentPositionParams): ConfigPath {
             break;
         }
     }
-    notifyDebug(ret);
     // return value
     return ret;
 }
@@ -678,6 +673,23 @@ function isParameterCompletion(line: string): boolean {
     return parameterCompletion.test(line);
 }
 
+// formats the default value of a paramete
+function paramDefault(param: MooseSyntax): string | undefined {
+    if (param.default) {
+        // if (param.default.indexOf(' ') >= 0) {
+        //     return `"${param.default}"`;
+        // }
+        if (param.cpp_type === 'bool') {
+            if (param.default === '0') {
+                return 'false';
+            }
+            if (param.default === '1') {
+                return 'true';
+            }
+        }
+        return param.default;
+    }
+}
 // w contains the syntax applicable to the current file
 function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax): CompletionItem[] {
     var addedWildcard, blockPostfix, bufferPosition: Position, completion: string, completions: CompletionItem[],
@@ -737,7 +749,8 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
                 if (!addedWildcard) {
                     completions.push({
                         label: '*',
-                        insertText: '${1:name}' + blockPostfix
+                        insertText: '${1:name}' + blockPostfix,
+                        insertTextFormat: InsertTextFormat.Snippet
                     });
                     addedWildcard = true;
                 }
@@ -763,7 +776,7 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
             if (mySettings.hideDeprecatedParams && param.deprecated) {
                 continue;
             }
-            defaultValue = param.default || '';
+            defaultValue = paramDefault(param) || '';
             if (defaultValue.indexOf(' ') >= 0) {
                 defaultValue = `'${defaultValue}'`;
             }
@@ -780,7 +793,9 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
             completions.push({
                 label: param.name,
                 insertText: param.name + ' = ${1:' + defaultValue + '}',
+                insertTextFormat: InsertTextFormat.Snippet,
                 documentation: param.description,
+                detail: param.required ? '(required)' : paramDefault(param),
                 kind: icon,
                 tags: param.deprecated ? [CompletionItemTag.Deprecated] : []
             });
