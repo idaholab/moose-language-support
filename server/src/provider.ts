@@ -23,6 +23,7 @@ import {
     MooseSyntax,
     ParseTree,
     serverError,
+    serverDebug,
     serverStartWork,
     serverStopWork
 } from './interfaces';
@@ -104,8 +105,31 @@ let offlineSyntax: string | null = null;
 //     }
 // }
 
-function notifyError(msg: string) {
+export function notifyError(msg: string) {
     myConnection.sendNotification(serverError, msg);
+}
+
+export function notifyDebug(...items: any[]) {
+    var msgs: string[] = [], msg : string;
+    for (var i = 0; i < items.length; ++i)
+    {
+        var item : any = items[i];
+        if (typeof item == 'string')
+            msg = item;
+        else if (typeof item == 'function')
+            msg = '[function]';
+        else if (typeof item == 'undefined')
+            msg = '[undefined]';
+        else if (typeof item == 'object')
+            msg = JSON.stringify(item);
+        else if (typeof item == 'number' || typeof item == 'boolean')
+            msg = item.toString();
+        else
+            msg = '[?]';
+        msgs.push(msg);
+    }
+
+    myConnection.sendNotification(serverDebug, msgs.join(' '));
 }
 
 function notifyStartWork() {
@@ -326,6 +350,7 @@ function getSyntaxNode(configPath: string[], w: MooseSyntax): MooseSyntax | null
     var i, len, p, ref, ref1;
     // no parameters at the root
     if (configPath.length === 0) {
+        notifyDebug(configPath);
         return null;
     }
     // traverse subblocks
@@ -333,16 +358,21 @@ function getSyntaxNode(configPath: string[], w: MooseSyntax): MooseSyntax | null
     ref = configPath.slice(1);
     for (i = 0, len = ref.length; i < len; i++) {
         p = ref[i];
+        notifyDebug(i, p);
         if (b != null) {
-            if (b.subblocks) {
+            if (b.subblocks && p in b.subblocks) {
                 b = b.subblocks[p];
             }
             else {
                 b = b.star;
+                notifyDebug("b.star ", b);
             }
         }
         if (b == null)
+        {
+            notifyDebug("b == null");
             return null;
+        }
     }
     return b;
 }
@@ -379,6 +409,7 @@ function getParameters(cp: ConfigPath, w: MooseSyntax): MooseSyntax {
     // if the type is known add the specific parameters
     t = (b != null ? (ref1 = b.subblock_types) != null ? ref1[currentType] : void 0 : void 0) || (b != null ? (ref2 = b.types) != null ? ref2[currentType] : void 0 : void 0);
     Object.assign(ret, t != null ? t.parameters : void 0);
+    notifyDebug(cp, ret);
     return ret;
 }
 
@@ -632,7 +663,7 @@ function getCurrentConfigPath(request: TextDocumentPositionParams): ConfigPath {
             break;
         }
     }
-
+    notifyDebug(ret);
     // return value
     return ret;
 }
@@ -723,6 +754,7 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
         }
         // suggest parameters
     } else if (isParameterCompletion(line)) {
+        notifyDebug('isParameterCompletion');
         ref1 = getParameters(cp, w);
         // loop over valid parameters
         for (name in ref1) {
@@ -754,9 +786,11 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
             });
         }
     } else if (!!(match = otherParameter.exec(line))) {
+        notifyDebug('otherParameter');
         paramName = match[1];
         isQuoted = match[2][0] === "'";
         hasSpace = !!match[3];
+        notifyDebug(match);
         param = getParameters(cp, w)[paramName];
         if (param == null) {
             return [];
@@ -772,12 +806,13 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
     for (j = 0, len1 = completions.length; j < len1; j++) {
         // completions[j].replacementPrefix = prefix; TODO: maybe use edit range stuff here?
     }
+    notifyDebug(completions);
     return completions;
 }
 
 
 export function getSuggestions(request: TextDocumentPositionParams): CompletionItem[] {
-    var app: AppDir | null, loaded, w : MooseSyntax;
+    var app: AppDir | null, loaded, w: MooseSyntax;
 
     let uri: URI = URI.parse(request.textDocument.uri);
     if (uri.scheme != 'file')

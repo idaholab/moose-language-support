@@ -27,6 +27,7 @@ export interface ParseTree
 import * as rpc from 'vscode-jsonrpc/node';
 
 export const serverError = new rpc.NotificationType<string>('serverErrorNotification');
+export const serverDebug = new rpc.NotificationType<string>('serverDebugNotification');
 export const serverStartWork = new rpc.NotificationType0('serverStartWork');
 export const serverStopWork = new rpc.NotificationType0('serverStopWork');
 

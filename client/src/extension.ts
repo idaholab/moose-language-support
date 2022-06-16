@@ -19,6 +19,7 @@ let client: LanguageClient;
 
 // these must match the declarations in server/src/interfaces.ts
 export const serverError = new rpc.NotificationType<string>('serverErrorNotification');
+export const serverDebug = new rpc.NotificationType<string>('serverDebugNotification');
 export const serverStartWork = new rpc.NotificationType0('serverStartWork');
 export const serverStopWork = new rpc.NotificationType0('serverStopWork');
 
@@ -71,6 +72,9 @@ export function activate(context: ExtensionContext) {
         // handle notifications
         client.onNotification(serverError, (msg: string) => {
             window.showErrorMessage(msg);
+        });
+        client.onNotification(serverDebug, (msg: string) => {
+            console.log(msg);
         });
 
         client.onNotification(serverStartWork, () => {
