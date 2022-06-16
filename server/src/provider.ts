@@ -84,7 +84,7 @@ interface AppDir {
 // each moose input file in the project dir could have its own moose app and
 // json/syntax associated this table points to the app dir for each editor path
 let appDirs: { [key: string]: AppDir } = {};
-let syntaxWarehouse: { [key: string]: {} } = {};
+let syntaxWarehouse: { [key: string]: MooseSyntax } = {};
 let offlineSyntax: string | null = null;
 
 // Clear the cache for the app associated with current file.
@@ -194,6 +194,7 @@ function loadSyntax(app: AppDir): MooseSyntax {
     var cacheDate: number, cacheDir: string, cacheFile: string | null = null, w: MooseSyntax;
     // prepare entry in the syntax warehouse
     w = syntaxWarehouse[app.path] = {};
+
     // do not cache offlineSyntax
     if (app.name) {
         // we cache syntax data here
@@ -206,15 +207,19 @@ function loadSyntax(app: AppDir): MooseSyntax {
             cacheDate = fs.statSync(cacheFile).mtime.getTime();
             // if the cacheFile is newer than the app compile date we use the cache
             if (cacheDate > app.date) {
+                notifyError("cacheDate > app.date");
                 // load and parse the cached syntax
                 try {
                     let result = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+                    notifyError(`0 result.length = ${JSON.stringify(result).length}`);
                     if (!('blocks' in result)) {
                         // validate cache version
+                        notifyError("no blocks!");
                         throw 'Invalid cache';
                     }
-
-                    return w = result;
+                    notifyError(`1 result.length = ${JSON.stringify(result).length}`);
+                    w = result;
+                    return w;
                 } catch (error) {
                     // TODO: rebuild syntax if loading the cache fails
                     // vscode.window.showWarningMessage('Failed to load cached syntax (probably a legacy cache file).');
@@ -298,7 +303,7 @@ function rebuildSyntax(app: AppDir, cacheFile: string | null, w: MooseSyntax): M
     }
 }
 
-function prepareCompletion(request: TextDocumentPositionParams, w: {}): CompletionItem[] {
+function prepareCompletion(request: TextDocumentPositionParams, w: MooseSyntax): CompletionItem[] {
     // tree update
     if (parser == null) {
         return [];
@@ -644,7 +649,7 @@ function isParameterCompletion(line: string): boolean {
 
 // w contains the syntax applicable to the current file
 function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax): CompletionItem[] {
-    var addedWildcard, blockPostfix, blockPrefix, bufferPosition: Position, completion: string, completions: CompletionItem[],
+    var addedWildcard, blockPostfix, bufferPosition: Position, completion: string, completions: CompletionItem[],
         defaultValue, hasSpace, i, icon: CompletionItemKind,
         isQuoted, j, len, len1, line: string, match, name, param: MooseSyntax, paramName,
         partialPath: string[], postLine, prefix, ref, ref1;
@@ -683,7 +688,8 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
 
         blockPostfix = postLine.length > 0 && postLine[0] === ']' ? '' : ']';
         // handle relative paths
-        blockPrefix = cp.configPath.length > 0 ? '[./' : '[';
+        // blockPrefix = cp.configPath.length > 0 ? '[./' : '[';
+
         // add block close tag to suggestions
         if (cp.configPath.length > 0 && partialPath.length === 0) {
             completions.push({
@@ -700,7 +706,7 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
                 if (!addedWildcard) {
                     completions.push({
                         label: '*',
-                        insertText: blockPrefix + '${1:name}' + blockPostfix
+                        insertText: '${1:name}' + blockPostfix
                     });
                     addedWildcard = true;
                 }
@@ -710,7 +716,7 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
                 })) < 0) {
                     completions.push({
                         label: completion,
-                        insertText: blockPrefix + [...partialPath, completion].join('/') + blockPostfix
+                        insertText: [...partialPath, completion].join('/') + blockPostfix
                     });
                 }
             }
@@ -771,7 +777,7 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
 
 
 export function getSuggestions(request: TextDocumentPositionParams): CompletionItem[] {
-    var app: AppDir | null, loaded, w;
+    var app: AppDir | null, loaded, w : MooseSyntax;
 
     let uri: URI = URI.parse(request.textDocument.uri);
     if (uri.scheme != 'file')
@@ -795,7 +801,7 @@ export function getSuggestions(request: TextDocumentPositionParams): CompletionI
     // or not requested yet
     if (!(app.path in syntaxWarehouse)) {
         // return a promise that gets fulfilled as soon as the syntax data is loaded
-        loadSyntax(app);
+        syntaxWarehouse[app.path] = loadSyntax(app);
 
         // watch executable (unless it's WSL)
         if ((app.file != null) && (app.WSL == null)) {
