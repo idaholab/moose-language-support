@@ -33,6 +33,7 @@ import * as Parser from 'web-tree-sitter';
 import * as path from 'path';
 import * as readline from 'readline';
 import * as fs from 'fs-plus';
+import * as glob from 'glob';
 import * as cp from 'child_process';
 
 // import * as vscode from 'vscode';
@@ -44,6 +45,7 @@ let tree: any = null;
 
 Parser.init().then(function () {
     return Parser.Language.load(path.join(__dirname, '../tree-sitter-hit.wasm')).then(function (lang) {
+        // return Parser.Language.load('../tree-sitter-hit.wasm').then(function (lang) {
         parser = new Parser();
         return parser.setLanguage(lang);
     });
@@ -220,7 +222,7 @@ function loadSyntax(app: AppDir): MooseSyntax {
     w = syntaxWarehouse[app.path] = {};
 
     // do not cache offlineSyntax
-    if (app.name) {
+    if (app.name && __dirname) {
         // we cache syntax data here
         cacheDir = path.join(__dirname, '..', 'cache');
         fs.makeTreeSync(cacheDir);
@@ -350,7 +352,6 @@ function getSyntaxNode(configPath: string[], w: MooseSyntax): MooseSyntax | null
     var i, len, p, ref, ref1;
     // no parameters at the root
     if (configPath.length === 0) {
-        notifyDebug(configPath);
         return null;
     }
     // traverse subblocks
@@ -358,7 +359,6 @@ function getSyntaxNode(configPath: string[], w: MooseSyntax): MooseSyntax | null
     ref = configPath.slice(1);
     for (i = 0, len = ref.length; i < len; i++) {
         p = ref[i];
-        notifyDebug(i, p);
         if (b != null) {
             if (b.subblocks && p in b.subblocks) {
                 b = b.subblocks[p];
@@ -435,9 +435,9 @@ function getTypes(configPath: string[], w: MooseSyntax): CompletionItem[] {
     return ret;
 }
 
-// Filename completions (TODO, respect wildcards)
-function computeFileNameCompletion(wildcards: string[], request: TextDocumentPositionParams): CompletionItem[] {
-    var completions: CompletionItem[], dir: string[], i, len, name;
+// Filename completions (TODO, traverse directories)
+function computeFileNameCompletion(regex: RegExp, request: TextDocumentPositionParams): CompletionItem[] {
+    var completions: CompletionItem[], dir: string[], i, len;
 
     let uri: URI = URI.parse(request.textDocument.uri);
     let filePath: string = Utils.dirname(uri).fsPath;
@@ -445,11 +445,12 @@ function computeFileNameCompletion(wildcards: string[], request: TextDocumentPos
     dir = fs.readdirSync(filePath);
     completions = [];
     for (i = 0, len = dir.length; i < len; i++) {
-        name = dir[i];
-        completions.push({
-            label: name,
-            kind: CompletionItemKind.File
-        });
+        if (regex.test(dir[i])) {
+            completions.push({
+                label: dir[i],
+                kind: CompletionItemKind.File
+            })
+        };
     }
     return completions;
 }
@@ -474,8 +475,8 @@ function computeValueCompletion(param: MooseSyntax, request: TextDocumentPositio
     // };
 
     blockList = [];
-    var buildBlockList = function (node: MooseSyntax, oldPath?: string) {
-        var block, c, i, len, newPath, ref, results: CompletionItem[];
+    function buildBlockList(node: MooseSyntax, oldPath?: string) {
+        var block, c, i, len, newPath : string, ref, results: string[];
         ref = node.children;
         results = [];
         for (i = 0, len = ref.length; i < len; i++) {
@@ -487,12 +488,9 @@ function computeValueCompletion(param: MooseSyntax, request: TextDocumentPositio
                 }
                 newPath = (oldPath ? oldPath + '/' : '') + block;
                 blockList.push(newPath);
-                results.concat(buildBlockList(c, newPath));
-            } else {
-                results.push({ label: 'void' }); // TODO: why did I push undefined here?
+                buildBlockList(c, newPath);
             }
         }
-        return results;
     };
 
     if ((param.cpp_type === 'bool' && singleOK) || (isVectorOf(param.cpp_type, 'bool') && vectorOK)) {
@@ -508,8 +506,9 @@ function computeValueCompletion(param: MooseSyntax, request: TextDocumentPositio
         ];
     }
 
-    if ((param.cpp_type === 'MooseEnum' && singleOK) || (param.cpp_type === 'MultiMooseEnum' && vectorOK)) {
-        if (param.options != null) {
+    if (!!param.options) {
+        if ((param.basic_type === 'String' && singleOK) || (param.basic_type === 'Array:String' && vectorOK)) {
+            notifyDebug('completion ok');
             completions = [];
             ref = param.options.split(' ');
             for (i = 0, len = ref.length; i < len; i++) {
@@ -530,10 +529,10 @@ function computeValueCompletion(param: MooseSyntax, request: TextDocumentPositio
 
     basicType = match ? match[1] : param.cpp_type;
     if (basicType === 'FileName') {
-        return computeFileNameCompletion(['*'], request);
+        return computeFileNameCompletion(/.*/, request);
     }
     if (basicType === 'MeshFileName') {
-        return computeFileNameCompletion(['*.e'], request);
+        return computeFileNameCompletion(/.*\.(e|exd|dat|gmv|msh|inp|xda|xdr|vtk)$/, request);
     }
     if (basicType === 'OutputName') {
         return (function () {
@@ -554,6 +553,7 @@ function computeValueCompletion(param: MooseSyntax, request: TextDocumentPositio
     // automatically generated matches from registerSyntaxType
     if (basicType in w.global.associated_types) {
         buildBlockList(tree.rootNode);
+        notifyDebug(blockList);
         completions = [];
         var matches: Set<string> = new Set(w.global.associated_types[basicType]);
         matches.forEach(function (match: string) {
@@ -563,14 +563,15 @@ function computeValueCompletion(param: MooseSyntax, request: TextDocumentPositio
                 results = [];
                 for (j = 0, len1 = blockList.length; j < len1; j++) {
                     block = blockList[j];
-                    if (block.slice(0, +(key.length - 1) + 1 || 9e9) === key) {
+                    if (block.slice(0, key.length) === key) {
                         results.push(completions.push({
                             label: block.slice(key.length),
                             kind: CompletionItemKind.Field
                         }));
-                    } else {
-                        results.push(void 0);
                     }
+                    // else {
+                    //     results.push(void 0);
+                    // }
                 }
                 return results;
             }
@@ -801,11 +802,9 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
             });
         }
     } else if (!!(match = otherParameter.exec(line))) {
-        notifyDebug('otherParameter');
         paramName = match[1];
         isQuoted = match[2][0] === "'";
         hasSpace = !!match[3];
-        notifyDebug(match);
         param = getParameters(cp, w)[paramName];
         if (param == null) {
             return [];
@@ -821,7 +820,6 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
     for (j = 0, len1 = completions.length; j < len1; j++) {
         // completions[j].replacementPrefix = prefix; TODO: maybe use edit range stuff here?
     }
-    notifyDebug(completions);
     return completions;
 }
 
