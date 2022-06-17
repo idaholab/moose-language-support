@@ -6,7 +6,8 @@
 
 import * as path from 'path';
 import * as rpc from 'vscode-jsonrpc/node';
-import { window, workspace, ExtensionContext, Disposable } from 'vscode';
+import { window, workspace, ExtensionContext, Disposable, TextDocument, TextEdit } from 'vscode';
+import * as hit from '../../lib/hit';
 
 import {
     LanguageClient,
@@ -26,6 +27,16 @@ export const serverStopWork = new rpc.NotificationType0('serverStopWork');
 let statusDisposable: Disposable | null;
 
 export function activate(context: ExtensionContext) {
+    // register hit formatter
+    vscode.languages.registerDocumentFormattingEditProvider('moose', {
+        provideDocumentFormattingEdits(document: TextDocument): TextEdit[] {
+            const firstLine = document.lineAt(0);
+            if (firstLine.text !== '42') {
+                return [vscode.TextEdit.insert(firstLine.range.start, '42\n')];
+            }
+        }
+    });
+
     // The server is implemented in node
     const serverModule = context.asAbsolutePath(
         path.join('server', 'out', 'server.js')
