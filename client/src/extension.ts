@@ -4,10 +4,11 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
+import * as fs from 'fs';
 import * as path from 'path';
 import * as rpc from 'vscode-jsonrpc/node';
-import { window, workspace, ExtensionContext, Disposable, TextDocument, TextEdit } from 'vscode';
-import * as hit from '../../lib/hit';
+import { window, workspace, ExtensionContext, Disposable, TextDocument, TextEdit, Range, languages } from 'vscode';
+import * as hit from '../hit/hit';
 
 import {
     LanguageClient,
@@ -28,12 +29,29 @@ let statusDisposable: Disposable | null;
 
 export function activate(context: ExtensionContext) {
     // register hit formatter
-    vscode.languages.registerDocumentFormattingEditProvider('moose', {
+    languages.registerDocumentFormattingEditProvider('moose', {
         provideDocumentFormattingEdits(document: TextDocument): TextEdit[] {
-            const firstLine = document.lineAt(0);
-            if (firstLine.text !== '42') {
-                return [vscode.TextEdit.insert(firstLine.range.start, '42\n')];
+            var style_file: string, style: string;
+            style_file = workspace.getConfiguration("languageServerMoose").get("formatStyleFile") || path.join(__dirname, '../hit/default.style');
+            try {
+                style = fs.readFileSync(style_file, 'utf8');
+            } catch (e) {
+                window.showErrorMessage(`Failed to load style file '${style_file}'.`);
+                return;
             }
+
+            try {
+                const newText = hit.process(document.getText(), style);
+
+                const firstLine = document.lineAt(0);
+                const lastLine = document.lineAt(document.lineCount - 1);
+                const textRange = new Range(firstLine.range.start, lastLine.range.end);
+                return [TextEdit.replace(textRange, newText)];
+            }
+            catch (e: any) {
+                window.showWarningMessage(`Malformed input.`);
+            }
+            return [];
         }
     });
 

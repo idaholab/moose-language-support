@@ -4,7 +4,7 @@
 	"license": "LGPL",
 	"displayName": "MOOSE Language Support",
 	"description": "Assists in writing MOOSE input files and code",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/idaholab/moose-language-support"
@@ -20,7 +20,7 @@
 	"activationEvents": [
 		"onLanguage:moose"
 	],
-	"main": "./out/extension",
+	"main": "./client/out/extension",
 	"contributes": {
 		"languages": [
 			{
@@ -188,6 +188,11 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Omit deprecated parameters from autocompletion."
+				},
+				"languageServerMoose.formatStyleFile": {
+					"type": "string",
+					"default": "",
+					"description": "Path to a custom HIT format style file. Leave empty for default style."
 				}
 			}
 		}
@@ -196,11 +201,8 @@
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -b",
 		"watch": "tsc -b -w",
-		"lint": "eslint ./src ./server/src --ext .ts,.tsx",
-		"postinstall": "cd server && npm install && cd .."
-	},
-	"dependencies": {
-		"vscode-languageclient": "^7.0.0"
+		"lint": "eslint ./client/src ./server/src --ext .ts,.tsx",
+		"postinstall": "cd client && npm install && cd ../server && npm install && cd .."
 	},
 	"devDependencies": {
 		"@types/mocha": "^9.1.0",
@@ -211,8 +213,6 @@
 		"eslint": "^8.13.0",
 		"mocha": "^9.2.1",
 		"rimraf": "^3.0.2",
-		"typescript": "^4.7.2",
-		"@types/vscode": "^1.63.0",
-		"@vscode/test-electron": "^2.1.2"
+		"typescript": "^4.7.2"
 	}
 }

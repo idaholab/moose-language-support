@@ -222,18 +222,18 @@ connection.onCompletion(
 
 // // This handler resolves additional information for the item selected in
 // // the completion list.
-// connection.onCompletionResolve(
-//     (item: CompletionItem): CompletionItem => {
-//         if (item.data === 1) {
-//             item.detail = 'TypeScript details';
-//             item.documentation = 'TypeScript documentation';
-//         } else if (item.data === 2) {
-//             item.detail = 'JavaScript details';
-//             item.documentation = 'JavaScript documentation';
-//         }
-//         return item;
-//     }
-// );
+connection.onCompletionResolve(
+    (item: CompletionItem): CompletionItem => {
+        // if (item.data === 1) {
+        //     item.detail = 'TypeScript details';
+        //     item.documentation = 'TypeScript documentation';
+        // } else if (item.data === 2) {
+        //     item.detail = 'JavaScript details';
+        //     item.documentation = 'JavaScript documentation';
+        // }
+        return item;
+    }
+);
 
 // pass references to these objects
 provider.init(globalSettings, documents, connection);

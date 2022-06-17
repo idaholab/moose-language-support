@@ -233,17 +233,14 @@ function loadSyntax(app: AppDir): MooseSyntax {
             cacheDate = fs.statSync(cacheFile).mtime.getTime();
             // if the cacheFile is newer than the app compile date we use the cache
             if (cacheDate > app.date) {
-                notifyError("cacheDate > app.date");
                 // load and parse the cached syntax
                 try {
                     let result = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
-                    notifyError(`0 result.length = ${JSON.stringify(result).length}`);
                     if (!('blocks' in result)) {
                         // validate cache version
                         notifyError("no blocks!");
                         throw 'Invalid cache';
                     }
-                    notifyError(`1 result.length = ${JSON.stringify(result).length}`);
                     w = result;
                     return w;
                 } catch (error) {
@@ -508,7 +505,6 @@ function computeValueCompletion(param: MooseSyntax, request: TextDocumentPositio
 
     if (!!param.options) {
         if ((param.basic_type === 'String' && singleOK) || (param.basic_type === 'Array:String' && vectorOK)) {
-            notifyDebug('completion ok');
             completions = [];
             ref = param.options.split(' ');
             for (i = 0, len = ref.length; i < len; i++) {
