@@ -1,9 +1,20 @@
 # moose-language-support README
 
 ## Features
+
+* Autocomplete MOOSE input files
+* Syntax highlighting for MOOSE input files
+* Format MOOSE input files
+* C++ class snippets for MOOSE development
+
+### Autocomplete
+
+![autocomplete](images/autocomplete.png)
+
+### Syntax highlighting
+
 Add syntax highlighting and snippets to MOOSE input files in VSCode.
 
-![syntax highlighting](images/syntax.png)
 
 Syntax highlighting for:
 * Valid top level blocks
@@ -37,8 +48,12 @@ none
 
 This extension is currently in beta status.
 
+### 0.0.3
+Small fixes to the README and ignore files
+
 ### 0.0.2
 Added a format provider for MOOSE input files.
+
 ### 0.0.1
 
 This extension is a port of the `language-moose`, `autocomplete-moose`, and `moose-hit-format` Atom extensions. By Daniel Schwen.
