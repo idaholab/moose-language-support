@@ -48,6 +48,9 @@ none
 
 This extension is currently in beta status.
 
+### 0.0.5
+Add icon
+
 ### 0.0.3
 Small fixes to the README and ignore files
 
