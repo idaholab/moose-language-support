@@ -33,7 +33,11 @@ export function activate(context: ExtensionContext) {
     languages.registerDocumentFormattingEditProvider('moose', {
         provideDocumentFormattingEdits(document: TextDocument): TextEdit[] {
             var style_file: string, style: string;
-            style_file = workspace.getConfiguration("languageServerMoose").get("formatStyleFile") || path.join(__dirname, '../hit/default.style');
+
+            style_file =
+                workspace.getConfiguration("languageServerMoose").get("formatStyleFile") ||
+                context.asAbsolutePath(path.join('client', 'hit', 'default.style'))
+
             try {
                 style = fs.readFileSync(style_file, 'utf8');
             } catch (e) {
@@ -47,7 +51,7 @@ export function activate(context: ExtensionContext) {
                 const firstLine = document.lineAt(0);
                 const lastLine = document.lineAt(document.lineCount - 1);
                 const textRange = new Range(firstLine.range.start, lastLine.range.end);
-                return [TextEdit.replace(textRange, newText)];
+                return [TextEdit.replace(textRange, newText + '\n')];
             }
             catch (e: any) {
                 window.showWarningMessage(`Malformed input.`);
