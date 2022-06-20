@@ -14,7 +14,6 @@
     "dependencies": {
         "child-process": "^1.0.2",
         "fs-plus": "^3.1.1",
-        "glob": "^8.0.3",
         "vscode-languageserver": "^7.0.0",
         "vscode-languageserver-textdocument": "^1.0.4",
         "vscode-uri": "^3.0.3",
@@ -22,7 +21,6 @@
     },
     "scripts": {},
     "devDependencies": {
-        "@types/fs-plus": "^3.0.2",
-        "@types/glob": "^7.2.0"
+        "@types/fs-plus": "^3.0.2"
     }
 }
