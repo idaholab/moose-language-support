@@ -6,7 +6,6 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as rpc from 'vscode-jsonrpc/node';
 import { window, workspace, ExtensionContext, Disposable, TextDocument, TextEdit, Range, languages } from 'vscode';
 import * as hit from '../hit/hit';
 
@@ -14,16 +13,18 @@ import {
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
-    TransportKind
+    TransportKind,
+    NotificationType,
+    NotificationType0
 } from 'vscode-languageclient/node';
 
 let client: LanguageClient;
 
 // these must match the declarations in server/src/interfaces.ts
-export const serverError = new rpc.NotificationType<string>('serverErrorNotification');
-export const serverDebug = new rpc.NotificationType<string>('serverDebugNotification');
-export const serverStartWork = new rpc.NotificationType0('serverStartWork');
-export const serverStopWork = new rpc.NotificationType0('serverStopWork');
+export const serverError = new NotificationType<string>('serverErrorNotification');
+export const serverDebug = new NotificationType<string>('serverDebugNotification');
+export const serverStartWork = new NotificationType0('serverStartWork');
+export const serverStopWork = new NotificationType0('serverStopWork');
 
 let statusDisposable: Disposable | null;
 
