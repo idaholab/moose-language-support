@@ -7,6 +7,15 @@
 import * as Parser from 'web-tree-sitter';
 import * as path from 'path';
 
+export interface HITBlock {
+    path: string;
+    node: Parser.SyntaxNode;
+}
+
+export interface HITParameterList 
+{
+    [key: string]: string;
+}
 
 export class HITParser {
     parser: Parser | null = null;
@@ -34,8 +43,8 @@ export class HITParser {
         }
     }
 
-    getBlockList(): string[] {
-        var blockList: string[] = [];
+    getBlockList(): HITBlock[] {
+        var blockList: HITBlock[] = [];
         function buildBlockList(node: Parser.SyntaxNode, oldPath?: string) {
             var block, c, i, len, newPath: string, ref;
             ref = node.children;
@@ -47,7 +56,7 @@ export class HITParser {
                         block = block.slice(2);
                     }
                     newPath = (oldPath ? oldPath + '/' : '') + block;
-                    blockList.push(newPath);
+                    blockList.push({ path: newPath, node: c });
                     buildBlockList(c, newPath);
                 }
             }
@@ -58,6 +67,60 @@ export class HITParser {
         return blockList;
     }
 
+    findBlock(path : string) : Parser.SyntaxNode | null {
+        if (!this.tree) {
+            return null;
+        }
+
+        function traverseBlocks(node: Parser.SyntaxNode, oldPath?: string) : Parser.SyntaxNode | null {
+            var block : string, c : Parser.SyntaxNode, i, len,  ref : Parser.SyntaxNode[];
+            ref = node.children;
+            for (i = 0, len = ref.length; i < len; i++) {
+                c = ref[i];
+                if (c.type === 'top_block' || c.type === 'block') {
+                    block = c.children[1].text;
+                    if (block.slice(0, 2) === './') {
+                        block = block.slice(2);
+                    }
+                    var newPath = (oldPath ? oldPath + '/' : '') + block;
+                    if (newPath === path) {
+                        return c;
+                    } else if (path.slice(0, newPath.length) === newPath) {
+                        var ret = traverseBlocks(c, newPath);
+                        // if we found a match, return it
+                        if (ret) {
+                            return ret;
+                        }
+                        // otherwise keep looking
+                    }
+                }
+            }
+            // no match found
+            return null;
+        };
+        return traverseBlocks(this.tree.rootNode);
+    }
+
+    // get a map from all parameters to their correspoding values
+    getBlockParameters(node: Parser.SyntaxNode): HITParameterList {
+        var params: HITParameterList = {}, i, len, c: Parser.SyntaxNode;
+        for (i = 0, len = node.children.length; i < len; i++) {
+            c = node.children[i];
+            if (c.type === 'parameter_definition') {
+                params[c.children[1].text] = c.children[2].text;
+            }
+        }
+        return params;
+    }
+
+    getPathParameters(path : string): HITParameterList {
+        var node = this.findBlock(path);
+        if (!node) {
+            return {};
+        }
+        return this.getBlockParameters(node);
+    }
+ 
     // // determine the active input file path at the current position
     // getPath(request: TextDocumentPositionParams): ConfigPath {
     //     var c, i, len, node: ParseTree, ref, ret: ConfigPath, sourcePath: string[];
@@ -143,7 +206,7 @@ var tree_sitter_ready: boolean = false;
 var uninitialized_parsers: HITParser[] = [];
 
 // HIT grammar
-var hit_language : Parser.Language;
+var hit_language: Parser.Language;
 
 // initializing the TreeSitter parser is asynchronous
 Parser.init().then(() => {
