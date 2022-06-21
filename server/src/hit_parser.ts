@@ -12,7 +12,7 @@ export interface HITBlock {
     node: Parser.SyntaxNode;
 }
 
-export interface HITParameterList 
+export interface HITParameterList
 {
     [key: string]: string;
 }
@@ -20,6 +20,8 @@ export interface HITParameterList
 export class HITParser {
     parser: Parser | null = null;
     tree: Parser.Tree | null = null;
+
+    readyCallback: Function | null = null;
 
     constructor() {
         if (tree_sitter_ready) {
@@ -33,6 +35,19 @@ export class HITParser {
     _initParser() {
         this.parser = new Parser();
         this.parser.setLanguage(hit_language);
+        if (this.readyCallback) {
+            this.readyCallback();
+        }
+    }
+
+    onReady(f : Function) {
+        if (this.parser) {
+            // if the parser is already initialized execute f right away
+            f();
+        } else {
+            // otherwise save it for later
+            this.readyCallback = f;
+        }
     }
 
     parse(text: string) {
@@ -107,7 +122,7 @@ export class HITParser {
         for (i = 0, len = node.children.length; i < len; i++) {
             c = node.children[i];
             if (c.type === 'parameter_definition') {
-                params[c.children[1].text] = c.children[2].text;
+                params[c.children[0].text] = c.children[2].text;
             }
         }
         return params;
@@ -120,7 +135,7 @@ export class HITParser {
         }
         return this.getBlockParameters(node);
     }
- 
+
     // // determine the active input file path at the current position
     // getPath(request: TextDocumentPositionParams): ConfigPath {
     //     var c, i, len, node: ParseTree, ref, ret: ConfigPath, sourcePath: string[];

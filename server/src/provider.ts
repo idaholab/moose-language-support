@@ -31,9 +31,7 @@ import {
 
 import * as Parser from 'web-tree-sitter';
 import * as path from 'path';
-import * as readline from 'readline';
 import * as fs from 'fs-plus';
-import * as glob from 'glob';
 import * as cp from 'child_process';
 
 // import * as vscode from 'vscode';
@@ -53,7 +51,6 @@ Parser.init().then(function () {
 
 const insideBlockTag = /^\s*\[([^\]#\s]*)$/;
 const parameterCompletion = /^\s*[^\s#=\]]*$/;
-const typeParameter = /^\s*type\s*=\s*[^\s#=\]]*$/;
 const otherParameter = /^\s*([^\s#=\]]+)\s*=\s*('\s*[^\s'#=\]]*(\s?)[^'#=\]]*|[^\s#=\]]*)$/;
 const mooseApp = /^(.*)-(opt|dbg|oprof|devel)$/;
 const stdVector = /^std::([^:]+::)?vector<([a-zA-Z0-9_]+)(,\s?std::\1allocator<\2>\s?)?>$/;

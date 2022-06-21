@@ -25,6 +25,7 @@ export const serverError = new NotificationType<string>('serverErrorNotification
 export const serverDebug = new NotificationType<string>('serverDebugNotification');
 export const serverStartWork = new NotificationType0('serverStartWork');
 export const serverStopWork = new NotificationType0('serverStopWork');
+export const clientDataSend = new NotificationType<string>('clientDataSend');
 
 let statusDisposable: Disposable | null;
 
