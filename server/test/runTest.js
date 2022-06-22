@@ -7,6 +7,7 @@
 var fs = require('fs');
 var assert = require('assert');
 var hp = require('../out/hit_parser.js');
+var Syntax = require('../out/syntax.js');
 
 var p = new hp.HITParser();
 
@@ -28,7 +29,6 @@ function testFindBlock() {
 }
 
 function testGetBlockParameter() {
-  var n = p.findBlock('BCs/right');
   var gold = { type: 'DirichletBC', variable: 'u', boundary: 'left', value: '0' };
 
   assert.deepEqual(p.getPathParameters('BCs/left'), gold);
@@ -101,7 +101,37 @@ p.onReady(() => {
   // the user is adding will likely be unclosed)
   assert.deepEqual(p.getBlockAtPosition({ line: 22, column: 12 }).path, ['BCs', 'left']);
 
+  //
+  // Syntax tests
+  var s = Syntax.Container.fromFile('pruned2.json');
+
+  // test pruning the tree for internal purposes (i.e to prepare a small valid subset of a Syntax)
+  var s3 = Syntax.Container.fromFile('pruned3.json');
+  s3.prune(2);
+  assert.deepEqual(JSON.stringify(s3.tree), JSON.stringify(s.tree));
+
+  // getting a list of valid subblocks
+  assert.deepEqual(s.getSubblocks([]), ['Adaptivity', 'AuxKernels']);
+  assert.deepEqual(s.getSubblocks(['AuxKernels']), ['*', 'MatVecRealGradAuxKernel', 'MaterialVectorAuxKernel']);
+  assert.deepEqual(s.getSubblocks(['AuxKernels', 'test']), []);
+  assert.deepEqual(s.getSubblocks(['Adaptivity']), ['Indicators', 'Markers']);
+  assert.deepEqual(s.getSubblocks(['Adaptivity', 'Indicators']), ['*']);
+
+  // get a syntax node for a given path
+
+  // getting set of parameters for a given input path
+  assert.deepEqual(Object.keys(s.getParameters({ path: ['Adaptivity'] })), ['active', 'cycles_per_step']);
+  assert.deepEqual(Object.keys(s.getParameters({ path: ['Adaptivity', 'Indicators', 'test'] })), [
+    'active', 'family', 'inactive'
+  ]);
+  assert.deepEqual(Object.keys(s.getParameters({ path: ['Adaptivity', 'Indicators', 'test'], type: 'AnalyticalIndicator' })), [
+    'active', 'family', 'inactive', 'block', 'control_tags'
+  ]);
+
+  // get applicable types at the given config path
+  assert.deepEqual(JSON.stringify(s.getTypes(['Adaptivity', 'Markers', 'test'])), '[{"label":"ArrayMooseVariable","documentation":"Used for grouping standard field variables with the same finite element family and order","kind":25},{"label":"BoundaryMarker","documentation":"Marks all elements with sides on a given boundary for refinement/coarsening","kind":25}]');
 
   // done
   console.log('All passed.')
 });
+
