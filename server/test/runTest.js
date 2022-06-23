@@ -131,6 +131,13 @@ p.onReady(() => {
   // get applicable types at the given config path
   assert.deepEqual(JSON.stringify(s.getTypes(['Adaptivity', 'Markers', 'test'])), '[{"label":"ArrayMooseVariable","documentation":"Used for grouping standard field variables with the same finite element family and order","kind":25},{"label":"BoundaryMarker","documentation":"Marks all elements with sides on a given boundary for refinement/coarsening","kind":25}]');
 
+  // test Warehouse singleton
+  var w1 = Syntax.Warehouse.getInstance();
+  var w2 = Syntax.Warehouse.getInstance();
+  assert.equal(w1 === w2, true);
+
+  // run an executable
+  Syntax.runApp('/usr/bin/echo', ['World']);
   // done
   console.log('All passed.')
 });

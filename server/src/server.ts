@@ -30,6 +30,11 @@ import {
 
 import * as provider from './provider';
 
+import * as Syntax from './syntax';
+
+// get a syntax warehouse reference
+const syntax_warehouse = Syntax.Warehouse.getInstance();
+
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
 const connection = createConnection(ProposedFeatures.all);

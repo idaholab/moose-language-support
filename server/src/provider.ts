@@ -29,7 +29,9 @@ import {
     serverStopWork
 } from './interfaces';
 
-import * as Parser from 'web-tree-sitter';
+import * as Syntax from './syntax';
+import { HITBlock, HITParameterList, HITParser } from './hit_parser';
+
 import * as path from 'path';
 import * as fs from 'fs-plus';
 import * as cp from 'child_process';
@@ -37,17 +39,11 @@ import * as cp from 'child_process';
 // import * as vscode from 'vscode';
 import { URI, Utils } from 'vscode-uri'
 
-// while the Parser is initializing and loading the language, we block its use
-var parser: Parser | null = null;
-let tree: any = null;
+// HIT parser wrapper
+const parser: HITParser = new HITParser();
 
-Parser.init().then(function () {
-    return Parser.Language.load(path.join(__dirname, '../tree-sitter-hit.wasm')).then(function (lang) {
-        // return Parser.Language.load('../tree-sitter-hit.wasm').then(function (lang) {
-        parser = new Parser();
-        return parser.setLanguage(lang);
-    });
-});
+// MOOSE syntax warehouse
+const warehouse = Syntax.Warehouse.getInstance();
 
 const insideBlockTag = /^\s*\[([^\]#\s]*)$/;
 const parameterCompletion = /^\s*[^\s#=\]]*$/;
@@ -138,296 +134,6 @@ function notifyStopWork() {
     myConnection.sendNotification(serverStopWork);
 }
 
-function findApp(filePath: string): AppDir | null {
-    var fallbackMooseDir, file, fileTime, fileWithPath, i, isWSL, len, match, matches: AppDir[], previous_path, ref, searchPath, stats, wslDistro, wslPath;
-    if (filePath == null) {
-        notifyError('File not saved, nowhere to search for MOOSE syntax data.');
-        return null;
-    }
-    if (filePath in appDirs) {
-        return appDirs[filePath];
-    }
-    // is this a WSL (Windows Subsystem for Linux) path?
-    isWSL = filePath.slice(0, 7).toLowerCase() === '\\\\wsl$\\';
-    searchPath = filePath;
-    matches = [];
-    while (true) {
-        ref = fs.readdirSync(searchPath);
-        // list all files
-        for (i = 0, len = ref.length; i < len; i++) {
-            file = ref[i];
-            match = mooseApp.exec(file);
-            if (match) {
-                fileWithPath = path.join(searchPath, file);
-                if (!isWSL && !fs.isExecutableSync(fileWithPath)) {
-                    // on non-WSL systems we make sure the matched path is executable
-                    continue;
-                }
-                stats = fs.statSync(fileWithPath);
-                if (!isWSL && stats.isDirectory()) {
-                    // ignore directories that match the naming pattern
-                    continue;
-                }
-                fileTime = stats.mtime.getTime();
-                // convert from Windows to WSL Unix path
-                if (isWSL) {
-                    wslPath = fileWithPath.slice(7).split('\\');
-                    fileWithPath = '/' + wslPath.slice(1).join('/');
-                    wslDistro = wslPath[0];
-                } else {
-                    wslDistro = undefined;
-                }
-                matches.push({
-                    path: searchPath,
-                    name: match[1],
-                    file: fileWithPath,
-                    date: fileTime,
-                    WSL: wslDistro
-                });
-            }
-        }
-        if (matches.length > 0) {
-            // return newest application
-            matches.sort(function (a, b) {
-                return b.date - a.date;
-            });
-            appDirs[filePath] = matches[0];
-            return appDirs[filePath];
-        }
-        // go to parent
-        previous_path = searchPath;
-        searchPath = path.join(searchPath, '..');
-        if (searchPath === previous_path) {
-            // no executable found, let's check the fallback path
-            fallbackMooseDir = mySettings.fallbackMooseDir;
-            if (fallbackMooseDir !== '' && filePath !== fallbackMooseDir) {
-                return findApp(fallbackMooseDir);
-            }
-            if (!mySettings.ignoreMooseNotFoundError) {
-                // otherwise pop up an error notification (if not disabled) end give up
-                notifyError('No MOOSE application executable found.');
-            }
-            return null;
-        }
-    }
-}
-
-// fetch JSON syntax data
-function loadSyntax(app: AppDir): MooseSyntax {
-    var cacheDate: number, cacheDir: string, cacheFile: string | null = null, w: MooseSyntax;
-    // prepare entry in the syntax warehouse
-    w = syntaxWarehouse[app.path] = {};
-
-    // do not cache offlineSyntax
-    if (app.name && __dirname) {
-        // we cache syntax data here
-        cacheDir = path.join(__dirname, '..', 'cache');
-        fs.makeTreeSync(cacheDir);
-        cacheFile = path.join(cacheDir, `${app.name}.json`);
-
-        // see if the cache file exists
-        if (fs.existsSync(cacheFile)) {
-            cacheDate = fs.statSync(cacheFile).mtime.getTime();
-            // if the cacheFile is newer than the app compile date we use the cache
-            if (cacheDate > app.date) {
-                // load and parse the cached syntax
-                try {
-                    let result = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
-                    if (!('blocks' in result)) {
-                        // validate cache version
-                        notifyError("no blocks!");
-                        throw 'Invalid cache';
-                    }
-                    w = result;
-                    return w;
-                } catch (error) {
-                    // TODO: rebuild syntax if loading the cache fails
-                    // vscode.window.showWarningMessage('Failed to load cached syntax (probably a legacy cache file).');
-                    delete syntaxWarehouse[app.path];
-                    fs.unlink(cacheFile, function () { });
-                    return {};
-                };
-            }
-        }
-    }
-
-    return rebuildSyntax(app, cacheFile, w);
-}
-
-// rebuild syntax
-function rebuildSyntax(app: AppDir, cacheFile: string | null, w: MooseSyntax): MooseSyntax {
-    // indicate to the client that the server is busy
-    notifyStartWork();
-
-    var args: Array<string>, jsonData: string, moose;
-
-    // either run moose or use the offlineSyntax file
-    try {
-        if (app.file != null) {
-            args = ['--json'];
-            if (mySettings.allowTestObjects) {
-                args.push('--allow-test-objects');
-            }
-            if (app.WSL) {
-                moose = cp.spawnSync('wsl', ['-d', app.WSL, app.file].concat(args), {
-                    stdio: ['pipe', 'pipe', 'ignore'],
-                    maxBuffer: 1024 * 1024 * 1024
-                });
-            } else {
-                moose = cp.spawnSync(app.file, args, {
-                    stdio: ['pipe', 'pipe', 'ignore'],
-                    maxBuffer: 1024 * 1024 * 1024
-                });
-            }
-
-            // check if the MOOSE app ran successfully
-            if (moose.status != 0)
-                throw new Error(`Failed to run MOOSE to obtain syntax data ${moose.status} ${moose.signal}`);
-
-            // clip the JSON from the output using the markers
-            const out: string = moose.stdout.toString();
-            const beginMarker = '**START JSON DATA**\n';
-            const endMarker = '**END JSON DATA**\n';
-            let begin = out.indexOf(beginMarker);
-            let end = out.lastIndexOf(endMarker);
-
-            if (begin < 0 || end < begin) {
-                throw new Error('Markers not found');
-            }
-
-            // parse the JSON
-            jsonData = out.slice(begin + beginMarker.length, end);
-        } else {
-            try {
-                // read offline syntax dump (./moose-opt --json > offlinesyntax)
-                jsonData = fs.readFileSync(app.path, 'utf8');
-            } catch (e) {
-                throw new Error(`Failed to load offline syntax file '${offlineSyntax}'`);
-            }
-        }
-
-        // parse the JSON
-        w = JSON.parse(jsonData);
-
-        // write the JSON cache
-        if (cacheFile != null) {
-            fs.writeFile(cacheFile, JSON.stringify(w), function () { });
-        }
-
-        notifyStopWork();
-        return w;
-    } catch (error: any) {
-        notifyStopWork();
-        notifyError(error['message']);
-        return {};
-    }
-}
-
-function prepareCompletion(request: TextDocumentPositionParams, w: MooseSyntax): CompletionItem[] {
-    // tree update
-    if (parser == null) {
-        return [];
-    }
-
-    const document = myDocuments.get(request.textDocument.uri);
-    if (!document) {
-        return [];
-    }
-
-    const text = document.getText();
-    if (text) {
-        tree = parser.parse(text);
-        return computeCompletion(request, w);
-    } else { return []; }
-}
-
-// get the node in the JSON stucture for the current block level
-function getSyntaxNode(configPath: string[], w: MooseSyntax): MooseSyntax | null {
-    var i, len, p, ref, ref1;
-    // no parameters at the root
-    if (configPath.length === 0) {
-        return null;
-    }
-    // traverse subblocks
-    var b = w.blocks[configPath[0]];
-    ref = configPath.slice(1);
-    for (i = 0, len = ref.length; i < len; i++) {
-        p = ref[i];
-        if (b != null) {
-            if (b.subblocks && p in b.subblocks) {
-                b = b.subblocks[p];
-            }
-            else {
-                b = b.star;
-            }
-        }
-        if (b == null) {
-            return null;
-        }
-    }
-    return b;
-}
-
-// get a list of valid subblocks
-function getSubblocks(configPath: string[], w: MooseSyntax): string[] {
-    var ret: string[] = [];
-    // get top level blocks
-    if (configPath.length === 0) {
-        return Object.keys(w.blocks);
-    }
-    // traverse subblocks
-    var b = getSyntaxNode(configPath, w);
-    ret = Object.keys((b != null ? b.subblocks : void 0) || {});
-    if (b != null ? b.star : void 0) {
-        ret.push('*');
-    }
-    return ret.sort();
-}
-
-// get a list of parameters for the current block
-// if the type parameter is known add in class specific parameters
-function getParameters(cp: ConfigPath, w: MooseSyntax): MooseSyntax {
-    var currentType, n, ref, ref1, ref2, ret: MooseSyntax = {}, t;
-    var b = getSyntaxNode(cp.configPath, w);
-    // handle block level action parameters first
-    if (b != null) {
-        for (n in b.actions) {
-            Object.assign(ret, b.actions[n].parameters);
-        }
-    }
-    // if no type is explicitly set check if a default value exists
-    currentType = cp.explicitType || (ret != null ? (ref = ret['type']) != null ? ref.default : void 0 : void 0);
-    // if the type is known add the specific parameters
-    t = (b != null ? (ref1 = b.subblock_types) != null ? ref1[currentType] : void 0 : void 0) || (b != null ? (ref2 = b.types) != null ? ref2[currentType] : void 0 : void 0);
-    Object.assign(ret, t != null ? t.parameters : void 0);
-    return ret;
-}
-
-// get a list of possible completions for the type parameter at the current block level
-function getTypes(configPath: string[], w: MooseSyntax): CompletionItem[] {
-    var n, ret: CompletionItem[];
-    ret = [];
-
-    var b = getSyntaxNode(configPath, w);
-    if (b != null) {
-        for (n in b.subblock_types) {
-            ret.push({
-                label: n,
-                documentation: b.subblock_types[n].description,
-                kind: CompletionItemKind.TypeParameter
-            });
-        }
-        for (n in b.types) {
-            ret.push({
-                label: n,
-                documentation: b.types[n].description,
-                kind: CompletionItemKind.TypeParameter
-            });
-        }
-    }
-
-    return ret;
-}
 
 // Filename completions (TODO, traverse directories)
 function computeFileNameCompletion(regex: RegExp, request: TextDocumentPositionParams): CompletionItem[] {
@@ -458,36 +164,16 @@ function isVectorOf(yamlType: string, type: string): boolean {
 
 // build the suggestion list for parameter values (editor is passed in
 // to build the variable list)
-function computeValueCompletion(param: MooseSyntax, request: TextDocumentPositionParams, isQuoted: boolean, hasSpace: boolean, w: MooseSyntax): CompletionItem[] {
-    var basicType, blockList: string[], completions: CompletionItem[], i, len,
-        option, output, ref, singleOK: boolean, vectorOK: boolean;
+function computeValueCompletion(param: Syntax.Type.Parameter, request: TextDocumentPositionParams,
+    is_quoted: boolean, has_space: boolean, syntax: Syntax.Container): CompletionItem[] {
+    var basic_type, completions: CompletionItem[], i, len,
+        option, output, ref;
 
-    singleOK = !hasSpace;
-    vectorOK = isQuoted || !hasSpace;
-    // hasType = (type) => {
-    //     return (param.cpp_type === type && singleOK) || (isVectorOf(param.cpp_type, type) && vectorOK);
-    // };
+    var single_ok = !has_space;
+    var vector_ok = is_quoted || !has_space;
 
-    blockList = [];
-    function buildBlockList(node: MooseSyntax, oldPath?: string) {
-        var block, c, i, len, newPath : string, ref, results: string[];
-        ref = node.children;
-        results = [];
-        for (i = 0, len = ref.length; i < len; i++) {
-            c = ref[i];
-            if (c.type === 'top_block' || c.type === 'block') {
-                block = c.children[1].text;
-                if (block.slice(0, 2) === './') {
-                    block = block.slice(2);
-                }
-                newPath = (oldPath ? oldPath + '/' : '') + block;
-                blockList.push(newPath);
-                buildBlockList(c, newPath);
-            }
-        }
-    };
-
-    if ((param.cpp_type === 'bool' && singleOK) || (isVectorOf(param.cpp_type, 'bool') && vectorOK)) {
+    // bool value completion
+    if ((param.cpp_type === 'bool' && single_ok) || (isVectorOf(param.cpp_type, 'bool') && vector_ok)) {
         return [
             {
                 label: 'true',
@@ -500,8 +186,9 @@ function computeValueCompletion(param: MooseSyntax, request: TextDocumentPositio
         ];
     }
 
+    // enum type completion
     if (!!param.options) {
-        if ((param.basic_type === 'String' && singleOK) || (param.basic_type === 'Array:String' && vectorOK)) {
+        if ((param.basic_type === 'String' && single_ok) || (param.basic_type === 'Array:String' && vector_ok)) {
             completions = [];
             ref = param.options.split(' ');
             for (i = 0, len = ref.length; i < len; i++) {
@@ -516,18 +203,18 @@ function computeValueCompletion(param: MooseSyntax, request: TextDocumentPositio
     }
 
     var match = param.cpp_type.match(/^std::vector<([^>]+)>$/);
-    if ((match && !vectorOK) || (!match && !singleOK)) {
+    if ((match && !vector_ok) || (!match && !single_ok)) {
         return [];
     }
 
-    basicType = match ? match[1] : param.cpp_type;
-    if (basicType === 'FileName') {
+    basic_type = match ? match[1] : param.cpp_type;
+    if (basic_type === 'FileName') {
         return computeFileNameCompletion(/.*/, request);
     }
-    if (basicType === 'MeshFileName') {
+    if (basic_type === 'MeshFileName') {
         return computeFileNameCompletion(/.*\.(e|exd|dat|gmv|msh|inp|xda|xdr|vtk)$/, request);
     }
-    if (basicType === 'OutputName') {
+    if (basic_type === 'OutputName') {
         return (function () {
             var j, len1, ref1, results;
             ref1 = ['exodus', 'csv', 'console', 'gmv', 'gnuplot', 'nemesis', 'tecplot', 'vtk', 'xda', 'xdr'];
@@ -544,27 +231,23 @@ function computeValueCompletion(param: MooseSyntax, request: TextDocumentPositio
     }
 
     // automatically generated matches from registerSyntaxType
-    if (basicType in w.global.associated_types) {
-        buildBlockList(tree.rootNode);
-        notifyDebug(blockList);
+    if (basic_type in syntax.tree.global.associated_types) {
+        var block_list = parser.getBlockList();
         completions = [];
-        var matches: Set<string> = new Set(w.global.associated_types[basicType]);
+        var matches: Set<string> = new Set(syntax.tree.global.associated_types[basic_type]);
         matches.forEach(function (match: string) {
             var block, j, key, len1, results;
             if (match.slice(-2) === '/*') {
                 key = match.slice(0, -1);
                 results = [];
-                for (j = 0, len1 = blockList.length; j < len1; j++) {
-                    block = blockList[j];
+                for (j = 0, len1 = block_list.length; j < len1; j++) {
+                    block = block_list[j].path.join('/');
                     if (block.slice(0, key.length) === key) {
                         results.push(completions.push({
                             label: block.slice(key.length),
                             kind: CompletionItemKind.Field
                         }));
                     }
-                    // else {
-                    //     results.push(void 0);
-                    // }
                 }
                 return results;
             }
@@ -582,80 +265,6 @@ function getPrefix(line: string) {
     return ((ref = line.match(regex)) != null ? ref[0] : void 0) || '';
 }
 
-// determine the active input file path at the current position
-function getCurrentConfigPath(request: TextDocumentPositionParams): ConfigPath {
-    var c, i, len, node: ParseTree, ref, ret: ConfigPath, sourcePath: string[];
-    var position: Position = request.position;
-
-    function recurseCurrentConfigPath(node: ParseTree, sourcePath: string[] = []): [ParseTree, string[]] {
-        var c, c2, ce, cs, i, j, len, len1, ref, ref1;
-        ref = node.children;
-        for (i = 0, len = ref.length; i < len; i++) {
-            c = ref[i];
-            if (c.type !== 'top_block' && c.type !== 'block' && c.type !== 'ERROR') {
-                continue;
-            }
-            // check if we are inside a block or top_block
-            cs = c.startPosition;
-            ce = c.endPosition;
-            // outside row range
-            if (position.line < cs.row || position.line > ce.row) {
-                continue;
-            }
-            // in starting row but before starting column
-            if (position.line === cs.row && position.character < cs.column) {
-                continue;
-            }
-            // in ending row but after ending column
-            if (position.line === ce.row && position.character > ce.column) {
-                continue;
-            }
-            // if the block does not contain a valid path subnode we give up
-            if (c.children.length < 2 || c.children[1].type !== 'block_path') {
-                return [c.parent, sourcePath];
-            }
-            // first block_path node
-            if (c.type !== 'ERROR') {
-                if (c.children[1].startPosition.row >= position.line) {
-                    continue;
-                }
-                sourcePath = sourcePath.concat(c.children[1].text.replace(/^\.\//, '').split('/'));
-            } else {
-                ref1 = c.children;
-                // if we are in an ERROR block (unclosed) we should try to pick more path elements
-                for (j = 0, len1 = ref1.length; j < len1; j++) {
-                    c2 = ref1[j];
-                    if (c2.type !== 'block_path' || c2.startPosition.row >= position.line) {
-                        continue;
-                    }
-                    sourcePath = sourcePath.concat(c2.text.replace(/^\.\//, '').split('/'));
-                }
-            }
-            return recurseCurrentConfigPath(c, sourcePath);
-        }
-        return [node, sourcePath];
-    };
-
-    [node, sourcePath] = recurseCurrentConfigPath(tree.rootNode);
-    ret = {
-        configPath: sourcePath
-    };
-
-    // found a block we can check for a type parameter
-    if (node !== null) {
-        ref = node.children;
-        for (i = 0, len = ref.length; i < len; i++) {
-            c = ref[i];
-            if (c.type !== 'parameter_definition' || c.children.length < 3 || c.children[0].text !== 'type') {
-                continue;
-            }
-            ret.explicitType = c.children[2].text;
-            break;
-        }
-    }
-    // return value
-    return ret;
-}
 
 // check if there is an square bracket pair around the cursor
 function isOpenBracketPair(line: string): boolean {
@@ -684,38 +293,41 @@ function paramDefault(param: MooseSyntax): string | undefined {
         return param.default;
     }
 }
+
 // w contains the syntax applicable to the current file
-function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax): CompletionItem[] {
-    var addedWildcard, blockPostfix, bufferPosition: Position, completion: string, completions: CompletionItem[],
-        defaultValue, hasSpace, i, icon: CompletionItemKind,
-        isQuoted, j, len, len1, line: string, match, name, param: MooseSyntax, paramName,
-        partialPath: string[], postLine, prefix, ref, ref1;
+function computeCompletion(request: TextDocumentPositionParams, syntax: Syntax.Container, document: TextDocument): CompletionItem[] {
+    var addedWildcard, block_postfix, bufferPosition: Position, completion: string, completions: CompletionItem[],
+        defaultValue, i, icon: CompletionItemKind,
+        len, line: string, match, name,
+        partial_path: string[], postLine, ref;
 
     completions = [];
     bufferPosition = request.position;
 
     // current line up to the cursor position
-    const document = myDocuments.get(request.textDocument.uri);
-    if (!document) {
-        return [];
-    }
     line = document.getText({
         start: { line: bufferPosition.line, character: 0 },
         end: bufferPosition
     });
-    prefix = getPrefix(line);
+
+    // TODO: do we need this?
+    // prefix = getPrefix(line);
 
     // get the type pseudo path (for the yaml)
-    var cp = getCurrentConfigPath(request);
+    var cp = parser.getBlockAtPosition(request.position);
+    if (!cp) {
+        // this should only happen if the parser is not yet initialized
+        return [];
+    }
 
     // for empty [] we suggest blocks
     if (isOpenBracketPair(line)) {
         // get a partial path
-        var lineMatch = line.match(insideBlockTag);
-        if (lineMatch) {
-            partialPath = lineMatch[1].replace(/^\.\//, '').split('/');
-            partialPath.pop();
-        } else { partialPath = []; }
+        var line_match = line.match(insideBlockTag);
+        if (line_match) {
+            partial_path = line_match[1].replace(/^\.\//, '').split('/');
+            partial_path.pop();
+        } else { partial_path = []; }
 
         // get the postfix (to determine if we need to append a ] or not)
         postLine = document.getText({
@@ -723,19 +335,16 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
             end: { line: bufferPosition.line, character: bufferPosition.character + 1 }
         });
 
-        blockPostfix = postLine.length > 0 && postLine[0] === ']' ? '' : ']';
-        // handle relative paths
-        // blockPrefix = cp.configPath.length > 0 ? '[./' : '[';
-
         // add block close tag to suggestions
-        if (cp.configPath.length > 0 && partialPath.length === 0) {
+        block_postfix = postLine.length > 0 && postLine[0] === ']' ? '' : ']';
+        if (cp.path.length > 0 && partial_path.length === 0) {
             completions.push({
                 label: '..',
-                insertText: '[../' + blockPostfix
+                insertText: '[' + block_postfix
             });
         }
-        cp.configPath = cp.configPath.concat(partialPath);
-        ref = getSubblocks(cp.configPath, w);
+        cp.path = [...cp.path, ...partial_path];
+        ref = syntax.getSubblocks(cp.path);
         for (i = 0, len = ref.length; i < len; i++) {
             completion = ref[i];
             // add to suggestions if it is a new suggestion
@@ -743,7 +352,7 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
                 if (!addedWildcard) {
                     completions.push({
                         label: '*',
-                        insertText: '${1:name}' + blockPostfix,
+                        insertText: '${1:name}' + block_postfix,
                         insertTextFormat: InsertTextFormat.Snippet
                     });
                     addedWildcard = true;
@@ -754,22 +363,35 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
                 })) < 0) {
                     completions.push({
                         label: completion,
-                        insertText: [...partialPath, completion].join('/') + blockPostfix
+                        insertText: [...partial_path, completion].join('/') + block_postfix
                     });
                 }
             }
         }
-        // suggest parameters
-    } else if (isParameterCompletion(line)) {
-        notifyDebug('isParameterCompletion');
-        ref1 = getParameters(cp, w);
+        return completions;
+    }
+
+    // get parameters we already have and parameters that are valid
+    var existing_params = parser.getBlockParameters(cp.node);
+    var valid_params = syntax.getParameters({path: cp.path, type: existing_params.type });
+
+    // suggest parameters
+    if (isParameterCompletion(line)) {
         // loop over valid parameters
-        for (name in ref1) {
-            param = ref1[name];
+        for (name in valid_params) {
+            var param = valid_params[name];
+
             // skip deprecated params
             if (mySettings.hideDeprecatedParams && param.deprecated) {
                 continue;
             }
+
+            // skip parameters that are already present in the block
+            if (name in existing_params) {
+                continue;
+            }
+
+            // format the default vaklue
             defaultValue = paramDefault(param) || '';
             if (defaultValue.indexOf(' ') >= 0) {
                 defaultValue = `'${defaultValue}'`;
@@ -783,6 +405,7 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
                 }
             }
 
+            // set icon and build completion
             icon = param.name === 'type' ? CompletionItemKind.TypeParameter : param.required ? CompletionItemKind.Constructor : param.default != null ? CompletionItemKind.Variable : CompletionItemKind.Field;
             completions.push({
                 label: param.name,
@@ -794,71 +417,60 @@ function computeCompletion(request: TextDocumentPositionParams, w: MooseSyntax):
                 tags: param.deprecated ? [CompletionItemTag.Deprecated] : []
             });
         }
-    } else if (!!(match = otherParameter.exec(line))) {
-        paramName = match[1];
-        isQuoted = match[2][0] === "'";
-        hasSpace = !!match[3];
-        param = getParameters(cp, w)[paramName];
+
+        return completions;
+    }
+
+    // value completion
+    if (!!(match = otherParameter.exec(line))) {
+        var param_name = match[1];
+        var is_quoted = match[2][0] === "'";
+        var has_space = !!match[3];
+
+        var param = valid_params[param_name];
         if (param == null) {
             return [];
         }
         // this takes care of 'broken' type parameters like Executioner/Qudadrature/type
-        if (paramName === 'type' && param.cpp_type === 'std::string') {
-            completions = getTypes(cp.configPath, w);
+        if (param_name === 'type' && param.cpp_type === 'std::string') {
+            completions = syntax.getTypes(cp.path);
         } else {
-            completions = computeValueCompletion(param, request, isQuoted, hasSpace, w);
+            completions = computeValueCompletion(param, request, is_quoted, has_space, syntax);
         }
     }
-    // set the custom prefix
-    for (j = 0, len1 = completions.length; j < len1; j++) {
-        // completions[j].replacementPrefix = prefix; TODO: maybe use edit range stuff here?
-    }
+
     return completions;
 }
 
 
 export function getSuggestions(request: TextDocumentPositionParams): CompletionItem[] {
-    var app: AppDir | null, loaded, w: MooseSyntax;
-
+    // the the current document's URI
     let uri: URI = URI.parse(request.textDocument.uri);
-    if (uri.scheme != 'file')
-        return [];
-    let filePath: string = Utils.dirname(uri).fsPath;
 
-    // lookup application for current input file (cached)
-    if (offlineSyntax) {
-        app = {
-            path: offlineSyntax,
-            date: 0
-        };
-    } else {
-        app = findApp(filePath);
-    }
-    if (app == null) {
-        return [];
-    }
+    // get the current document
+    const document = myDocuments.get(request.textDocument.uri);
 
-    // check if the syntax is already loaded, currently loading,
-    // or not requested yet
-    if (!(app.path in syntaxWarehouse)) {
-        // return a promise that gets fulfilled as soon as the syntax data is loaded
-        syntaxWarehouse[app.path] = loadSyntax(app);
+    if (uri.scheme == 'file' && document) {
+        // find path to current document
+        let path: string = Utils.dirname(uri).fsPath;
 
-        // watch executable (unless it's WSL)
-        if ((app.file != null) && (app.WSL == null)) {
-            fs.watch(app.file, function (event, filename) {
-                // force rebuilding of syntax if executable changed
-                delete appDirs[filePath];
-                if (app != null) {
-                    delete syntaxWarehouse[app.path];
+        // get the corresponding syntax
+        var syntax = warehouse.getSyntax(path);
+        if (syntax) {
+            // get the document text
+            const text = document.getText();
+            if (text) {
+                // parse the text
+                parser.parse(text);
+                if (parser.tree) {
+                    // everything is prepared, now compute the completion
+                    return computeCompletion(request, syntax, document);
                 }
-            });
+            }
         }
-        // perform completion
-        return prepareCompletion(request, syntaxWarehouse[app.path]);
     }
 
-    w = syntaxWarehouse[app.path];
-    return prepareCompletion(request, w);
+    // no completion available
+    return [];
 }
 
