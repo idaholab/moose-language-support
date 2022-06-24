@@ -6,7 +6,7 @@
 	"displayName": "MOOSE Language Support",
 	"icon": "images/icon.png",
 	"description": "Assists in writing MOOSE input files and code",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/idaholab/moose-language-support"
@@ -168,7 +168,7 @@
 		],
 		"configuration": {
 			"type": "object",
-			"title": "Example configuration",
+			"title": "MOOSE language support configuration",
 			"properties": {
 				"languageServerMoose.allowTestObjects": {
 					"type": "boolean",
@@ -201,6 +201,11 @@
 					"type": "string",
 					"default": "",
 					"description": "Path to a custom HIT format style file. Leave empty for default style."
+				},
+				"languageServerMoose.detailedOutline": {
+					"type": "boolean",
+					"default": false,
+					"description": "Generate detailed input file outlines with all parameters."
 				}
 			}
 		}

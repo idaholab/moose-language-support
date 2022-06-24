@@ -107,7 +107,8 @@ const defaultSettings: MooseLanguageSettings = {
     fallbackMooseDir: '',
     ignoreMooseNotFoundError: false,
     hideDeprecatedParams: false,
-    allowTestObjects: false
+    allowTestObjects: false,
+    detailedOutline: false
 };
 let globalSettings: MooseLanguageSettings = defaultSettings;
 
@@ -222,7 +223,11 @@ connection.onDocumentSymbol(
             if (text) {
                 parser.parse(text);
                 if (parser.tree) {
-                    return parser.getOutline();
+                    if (globalSettings.detailedOutline) {
+                        return parser.getDetailedOutline();
+                    } else {
+                        return parser.getOutline();
+                    }
                 }
             }
         }

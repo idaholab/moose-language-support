@@ -12,6 +12,8 @@ export interface MooseLanguageSettings {
     ignoreMooseNotFoundError: boolean;
     hideDeprecatedParams: boolean;
     allowTestObjects: boolean;
+    detailedOutline: boolean;
+    formatStyleFile?: string;
 }
 
 // the MOOSESyntax (parsed from JSON)

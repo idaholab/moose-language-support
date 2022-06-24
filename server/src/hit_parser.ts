@@ -94,11 +94,11 @@ export class HITParser {
         return blockList;
     }
 
-    private pos(point : Parser.Point) : Position {
+    private pos(point: Parser.Point): Position {
         return { line: point.row, character: point.column };
     }
 
-    getOutline(): DocumentSymbol[] {
+    getDetailedOutline(): DocumentSymbol[] {
         if (!this.tree) {
             return [];
         }
@@ -134,6 +134,51 @@ export class HITParser {
                         Range.create(self.pos(c.startPosition), self.pos(c.endPosition)),
                         Range.create(self.pos(p.startPosition), self.pos(p.endPosition)),
                         []
+                    ));
+                }
+            }
+            return symbols;
+        }
+
+        return traverse(this.tree.rootNode);
+    }
+
+    getOutline(): DocumentSymbol[] {
+        if (!this.tree) {
+            return [];
+        }
+        var self = this;
+
+        function traverse(node: Parser.SyntaxNode): DocumentSymbol[] {
+            var symbols: DocumentSymbol[] = [];
+
+            var active = self.getBlockParameter(node, 'active');
+            var active_list : string[] | undefined;
+            if (active) {
+                active_list = active.split(' ');
+            }
+
+            for (var i = 0, len = node.children.length; i < len; i++) {
+                var c = node.children[i];
+                if (c.type === 'top_block' || c.type === 'block') {
+                    // get block title
+                    var t = c.children[1];
+                    var block = t.text;
+                    if (block.slice(0, 2) === './') {
+                        block = block.slice(2);
+                    }
+
+                    if (active_list && !(block in active_list)) {
+                        continue;
+                    }
+
+                    symbols.push(DocumentSymbol.create(
+                        block,
+                        self.getBlockParameter(c, 'type') || undefined,
+                        c.type === 'top_block' ? SymbolKind.Constructor : SymbolKind.Array,
+                        Range.create(self.pos(c.startPosition), self.pos(c.endPosition)),
+                        Range.create(self.pos(t.startPosition), self.pos(t.endPosition)),
+                        traverse(c)
                     ));
                 }
             }
