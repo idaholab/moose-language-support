@@ -235,21 +235,22 @@ function computeValueCompletion(param: Syntax.Type.Parameter, request: TextDocum
         var block_list = parser.getBlockList();
         completions = [];
         var matches: Set<string> = new Set(syntax.tree.global.associated_types[basic_type]);
-        matches.forEach(function (match: string) {
-            var block, j, key, len1, results;
+        matches.forEach((match: string) => {
+            var j, key, len1, results;
             if (match.slice(-2) === '/*') {
                 key = match.slice(0, -1);
-                results = [];
                 for (j = 0, len1 = block_list.length; j < len1; j++) {
-                    block = block_list[j].path.join('/');
+                    var block = block_list[j].path.join('/');
                     if (block.slice(0, key.length) === key) {
-                        results.push(completions.push({
-                            label: block.slice(key.length),
-                            kind: CompletionItemKind.Field
-                        }));
+                        var label = block.slice(key.length);
+                        if (label.indexOf('/') < 0) {
+                            completions.push({
+                                label: label,
+                                kind: CompletionItemKind.Field
+                            });
+                        }
                     }
                 }
-                return results;
             }
         });
         return completions;
@@ -276,7 +277,7 @@ function isParameterCompletion(line: string): boolean {
     return parameterCompletion.test(line);
 }
 
-// formats the default value of a paramete
+// formats the default value of a parameter
 function paramDefault(param: MooseSyntax): string | undefined {
     if (param.default) {
         // if (param.default.indexOf(' ') >= 0) {
@@ -373,7 +374,7 @@ function computeCompletion(request: TextDocumentPositionParams, syntax: Syntax.C
 
     // get parameters we already have and parameters that are valid
     var existing_params = parser.getBlockParameters(cp.node);
-    var valid_params = syntax.getParameters({path: cp.path, type: existing_params.type });
+    var valid_params = syntax.getParameters({ path: cp.path, type: existing_params.type });
 
     // suggest parameters
     if (isParameterCompletion(line)) {
@@ -396,21 +397,13 @@ function computeCompletion(request: TextDocumentPositionParams, syntax: Syntax.C
             if (defaultValue.indexOf(' ') >= 0) {
                 defaultValue = `'${defaultValue}'`;
             }
-            if (param.cpp_type === 'bool') {
-                if (defaultValue === '0') {
-                    defaultValue = 'false';
-                }
-                if (defaultValue === '1') {
-                    defaultValue = 'true';
-                }
-            }
 
             // set icon and build completion
             icon = param.name === 'type' ? CompletionItemKind.TypeParameter : param.required ? CompletionItemKind.Constructor : param.default != null ? CompletionItemKind.Variable : CompletionItemKind.Field;
             completions.push({
                 label: param.name,
-                insertText: param.name + ' = ${1:' + defaultValue + '}',
-                insertTextFormat: InsertTextFormat.Snippet,
+                insertText: param.name + ' = ' + (defaultValue ? '${1:' + defaultValue + '}' : ''),
+                insertTextFormat: defaultValue ? InsertTextFormat.Snippet : undefined,
                 documentation: param.description,
                 detail: param.required ? '(required)' : paramDefault(param),
                 kind: icon,
@@ -455,7 +448,7 @@ export function getSuggestions(request: TextDocumentPositionParams): CompletionI
         let path: string = Utils.dirname(uri).fsPath;
 
         // get the corresponding syntax
-        var syntax = warehouse.getSyntax(path);
+        var syntax = warehouse.getSyntax(path, () => notifyStartWork(), () => notifyStopWork());
         if (syntax) {
             // get the document text
             const text = document.getText();

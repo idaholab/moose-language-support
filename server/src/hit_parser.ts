@@ -6,7 +6,8 @@
 
 import * as Parser from 'web-tree-sitter';
 import * as path from 'path';
-import { Position } from 'vscode-languageserver/node';
+import { Position, DocumentSymbol, SymbolKind, Range } from 'vscode-languageserver/node';
+import { BlockList } from 'net';
 
 export interface HITBlock {
     path: string[];
@@ -59,7 +60,7 @@ export class HITParser {
     }
 
     // Removes quotes if possible (i.e. the string contains no whitespace or other quotes)
-    static normalizeValue(val : string) : string {
+    static normalizeValue(val: string): string {
         const okSingleQuote = /^'.*["\s].*'$/;
         const okDoubleQuote = /^".*['\s].*"$/;
         if (okSingleQuote.test(val) || okDoubleQuote.test(val)) {
@@ -91,6 +92,55 @@ export class HITParser {
             buildBlockList(this.tree.rootNode, []);
         }
         return blockList;
+    }
+
+    private pos(point : Parser.Point) : Position {
+        return { line: point.row, character: point.column };
+    }
+
+    getOutline(): DocumentSymbol[] {
+        if (!this.tree) {
+            return [];
+        }
+        var self = this;
+
+        function traverse(node: Parser.SyntaxNode): DocumentSymbol[] {
+            var symbols: DocumentSymbol[] = [];
+            for (var i = 0, len = node.children.length; i < len; i++) {
+                var c = node.children[i];
+                if (c.type === 'top_block' || c.type === 'block') {
+                    // get block title
+                    var t = c.children[1];
+                    var block = t.text;
+                    if (block.slice(0, 2) === './') {
+                        block = block.slice(2);
+                    }
+
+                    symbols.push(DocumentSymbol.create(
+                        block,
+                        undefined,
+                        c.type === 'top_block' ? SymbolKind.Constructor : SymbolKind.Array,
+                        Range.create(self.pos(c.startPosition), self.pos(c.endPosition)),
+                        Range.create(self.pos(t.startPosition), self.pos(t.endPosition)),
+                        traverse(c)
+                    ));
+                } else if (c.type === 'parameter_definition') {
+                    var p = c.children[0];
+                    var param = p.text;
+                    symbols.push(DocumentSymbol.create(
+                        param,
+                        c.children[2].text,
+                        param == 'type' ? SymbolKind.TypeParameter : SymbolKind.Key,
+                        Range.create(self.pos(c.startPosition), self.pos(c.endPosition)),
+                        Range.create(self.pos(p.startPosition), self.pos(p.endPosition)),
+                        []
+                    ));
+                }
+            }
+            return symbols;
+        }
+
+        return traverse(this.tree.rootNode);
     }
 
     // Get the HIT syntax node for a block specified by a path. The path may either be
@@ -142,17 +192,28 @@ export class HITParser {
         for (i = 0, len = node.children.length; i < len; i++) {
             c = node.children[i];
             if (c.type === 'parameter_definition') {
-                params[c.children[0].text] = c.children[2].text;
+                if (c.children.length == 3) {
+                    params[c.children[0].text] = c.children[2].text;
+                } else if (c.children.length == 4 && c.children[1].type == 'ERROR') {
+                    params[c.children[1].text] = c.children[3].text;
+                }
             }
         }
         return params;
     }
 
-    getBlockParameter(node: Parser.SyntaxNode, name: string) : string | null {
+    getBlockParameter(node: Parser.SyntaxNode, name: string): string | null {
         for (var i = 0, len = node.children.length; i < len; i++) {
             var c = node.children[i];
-            if (c.type === 'parameter_definition' && c.children[0].text == name) {
-                return c.children[2].text;
+            if (c.type === 'parameter_definition') {
+                // syntactically correct parameter definition
+                if (c.children.length == 3 && c.children[0].text == name) {
+                    return c.children[2].text;
+                }
+                // this is a parameter right after an incomplete parameter definition (i.e. the user stared typing a parameter name)
+                else if (c.children.length == 4 && c.children[1].type == 'ERROR' && c.children[1].text == name) {
+                    return c.children[3].text;
+                }
             }
         }
         return null;

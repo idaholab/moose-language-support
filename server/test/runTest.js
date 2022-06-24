@@ -28,15 +28,14 @@ function testFindBlock() {
   assert.equal(p.getBlockParameter(n, 'solve_type'), "'PJFNK'");
 }
 
-function testGetBlockParameter() {
+function testParameters() {
   var gold = { type: 'DirichletBC', variable: 'u', boundary: 'left', value: '0' };
 
   assert.deepEqual(p.getPathParameters('BCs/left'), gold);
   assert.deepEqual(p.getPathParameters(['BCs', 'left']), gold);
-}
 
-function testGetPathParameters() {
-  assert.deepEqual(p.getPathParameters('BCs/left'), { type: 'DirichletBC', variable: 'u', boundary: 'left', value: '0' });
+  var b = p.getBlockAtPosition({ line: 24, column: 2 });
+  assert.deepEqual(p.getBlockParameters(b.node), gold);
 }
 
 p.onReady(() => {
@@ -49,8 +48,7 @@ p.onReady(() => {
   // run tests
   testGetBlockList([['BCs'], ['BCs', 'left'], ['BCs', 'right'], ['Executioner'], ['Kernels'], ['Kernels', 'diff'], ['Mesh'], ['Outputs'], ['Variables'], ['Variables', 'u']]);
   testFindBlock();
-  testGetBlockParameter();
-  testGetPathParameters();
+  testParameters();
 
   //
   // load a more complicated MOOSE input file
@@ -100,6 +98,19 @@ p.onReady(() => {
   // getting an incomplete block (this needs to work to make autocompletion useful, as any new block
   // the user is adding will likely be unclosed)
   assert.deepEqual(p.getBlockAtPosition({ line: 22, column: 12 }).path, ['BCs', 'left']);
+
+  //
+  // load a MOOSE input file with an incomplete parameter
+  t = fs.readFileSync('broken_param.i', 'utf8');
+  // and parse it
+  p.parse(t);
+
+  // test getting a paramterlys robustly
+  var b = p.getBlockAtPosition({ line: 2, column: 0 });
+  assert.deepEqual(p.getBlockParameters(b.node), {
+    and: 'one_more',
+    existing: 'param'
+  });
 
   //
   // Syntax tests
