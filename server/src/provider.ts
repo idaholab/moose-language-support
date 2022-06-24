@@ -12,7 +12,8 @@ import {
     CompletionItemKind,
     CompletionItemTag,
     Connection,
-    InsertTextFormat
+    InsertTextFormat,
+    SymbolKind
 } from 'vscode-languageserver/node';
 
 import {
@@ -364,7 +365,7 @@ function computeCompletion(request: TextDocumentPositionParams, syntax: Syntax.C
                 })) < 0) {
                     completions.push({
                         label: completion,
-                        insertText: [...partial_path, completion].join('/') + block_postfix
+                        insertText: completion + block_postfix
                     });
                 }
             }
@@ -427,6 +428,23 @@ function computeCompletion(request: TextDocumentPositionParams, syntax: Syntax.C
         // this takes care of 'broken' type parameters like Executioner/Qudadrature/type
         if (param_name === 'type' && param.cpp_type === 'std::string') {
             completions = syntax.getTypes(cp.path);
+        } else if (param_name === 'active' || param_name === 'inactive') {
+            // filter direct subblocks from block list
+            var block_list = parser.getBlockList();
+            var path = cp.path.join('/');
+            block_list.forEach((b) => {
+                var sub_path = b.path.join('/');
+                if (sub_path.slice(0, path.length) === path) {
+                    sub_path = sub_path.slice(path.length + 1);
+                    if (sub_path.indexOf('/') < 0) {
+                        completions.push({
+                            label:sub_path,
+                            kind: SymbolKind.Array
+                        });
+                    }
+                }
+            });
+            return completions;
         } else {
             completions = computeValueCompletion(param, request, is_quoted, has_space, syntax);
         }

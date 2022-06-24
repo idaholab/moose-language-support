@@ -105,12 +105,18 @@ p.onReady(() => {
   // and parse it
   p.parse(t);
 
-  // test getting a paramterlys robustly
+  // test getting a paramters robustly
   var b = p.getBlockAtPosition({ line: 2, column: 0 });
   assert.deepEqual(p.getBlockParameters(b.node), {
     and: 'one_more',
     existing: 'param'
   });
+
+  // test utility functions
+  assert.deepEqual(hp.HITParser.explode("one"), ['one']);
+  assert.deepEqual(hp.HITParser.explode("one  two\tthree"), ['one', 'two', 'three']);
+  assert.deepEqual(hp.HITParser.explode("'one  two\tthree'"), ['one', 'two', 'three']);
+  assert.deepEqual(hp.HITParser.explode('"one  two\tthree"'), ['one', 'two', 'three']);
 
   //
   // Syntax tests

@@ -7,7 +7,6 @@
 import * as Parser from 'web-tree-sitter';
 import * as path from 'path';
 import { Position, DocumentSymbol, SymbolKind, Range } from 'vscode-languageserver/node';
-import { BlockList } from 'net';
 
 export interface HITBlock {
     path: string[];
@@ -59,16 +58,18 @@ export class HITParser {
         }
     }
 
-    // Removes quotes if possible (i.e. the string contains no whitespace or other quotes)
-    static normalizeValue(val: string): string {
-        const okSingleQuote = /^'.*["\s].*'$/;
-        const okDoubleQuote = /^".*['\s].*"$/;
-        if (okSingleQuote.test(val) || okDoubleQuote.test(val)) {
-            return val;
+    // turns a parameter into an array of values
+    static explode(val: string) : string[] {
+        val ||= '';
+        var match = val.match(/(^['"])(.*)\1$/);
+        if (match) {
+            val = match[2]
         }
-        return val;
+        return val.split(/\s+/);
     }
 
+    // Get a list of all blocks in the entire input file. Returns the full path of every block at every level.
+    // Used for autocompleting associated syntax (MeshGeneratorName, VariabelName, etc.)
     getBlockList(): HITBlock[] {
         var blockList: HITBlock[] = [];
         function buildBlockList(node: Parser.SyntaxNode, oldPath: string[]) {
@@ -155,8 +156,13 @@ export class HITParser {
             var active = self.getBlockParameter(node, 'active');
             var active_list : string[] | undefined;
             if (active) {
-                active_list = active.split(' ');
+                active_list = HITParser.explode(active);
+                if (active_list[0] == '__all__') {
+                    active = null;
+                }
             }
+
+            var inactive_list = HITParser.explode(self.getBlockParameter(node, 'inactive') || '');
 
             for (var i = 0, len = node.children.length; i < len; i++) {
                 var c = node.children[i];
@@ -168,7 +174,8 @@ export class HITParser {
                         block = block.slice(2);
                     }
 
-                    if (active_list && !(block in active_list)) {
+                    console.log(block,active,active_list,inactive_list);
+                    if ((active_list && active_list.indexOf(block) < 0) || inactive_list.indexOf(block) >= 0) {
                         continue;
                     }
 
