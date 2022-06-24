@@ -438,7 +438,7 @@ function computeCompletion(request: TextDocumentPositionParams, syntax: Syntax.C
                     sub_path = sub_path.slice(path.length + 1);
                     if (sub_path.indexOf('/') < 0) {
                         completions.push({
-                            label:sub_path,
+                            label: sub_path,
                             kind: SymbolKind.Array
                         });
                     }
@@ -466,18 +466,23 @@ export function getSuggestions(request: TextDocumentPositionParams): CompletionI
         let path: string = Utils.dirname(uri).fsPath;
 
         // get the corresponding syntax
-        var syntax = warehouse.getSyntax(path, () => notifyStartWork(), () => notifyStopWork());
-        if (syntax) {
-            // get the document text
-            const text = document.getText();
-            if (text) {
-                // parse the text
-                parser.parse(text);
-                if (parser.tree) {
-                    // everything is prepared, now compute the completion
-                    return computeCompletion(request, syntax, document);
+        try {
+            var syntax = warehouse.getSyntax(path, () => notifyStartWork(), () => notifyStopWork());
+            if (syntax) {
+                // get the document text
+                const text = document.getText();
+                if (text) {
+                    // parse the text
+                    parser.parse(text);
+                    if (parser.tree) {
+                        // everything is prepared, now compute the completion
+                        return computeCompletion(request, syntax, document);
+                    }
                 }
             }
+        } catch (e: any) {
+            notifyStopWork();
+            notifyError(e.message);
         }
     }
 

@@ -48,6 +48,11 @@ none
 
 This extension is currently in beta status.
 
+### 0.2.0
+Added support for active/inactive parameters with completion, and responsive outline
+Added automatic indentation, commenting, autoclosing pairs (with Max Nezdyur)
+Fixed multipath completion (e.g. `[Modules/TensorMechanics/...`)
+
 ### 0.1.1
 Add reduced detail outline and make it default
 
