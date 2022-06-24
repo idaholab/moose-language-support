@@ -35,7 +35,8 @@
 				"id": "moose",
 				"extensions": [
 					".i"
-				]
+				],
+				"configuration": "./language-configuration.json"
 			},
 			{
 				"id": "moose-test-spec",
