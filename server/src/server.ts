@@ -29,11 +29,14 @@ import {
 } from './interfaces';
 
 import * as provider from './provider';
-
 import * as Syntax from './syntax';
+import { HITBlock, HITParameterList, HITParser } from './hit_parser';
 
 // get a syntax warehouse reference
 const syntax_warehouse = Syntax.Warehouse.getInstance();
+
+// build a parser instance for outline and diagnostics
+const parser = new HITParser();
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -69,7 +72,8 @@ connection.onInitialize((params: InitializeParams) => {
             // Tell the client that this server supports code completion.
             completionProvider: {
                 resolveProvider: true
-            }
+            },
+            documentSymbolProvider: true
         }
     };
     if (hasWorkspaceFolderCapability) {
@@ -206,6 +210,24 @@ connection.onDidChangeWatchedFiles(_change => {
 connection.onCompletion(
     (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
         return provider.getSuggestions(_textDocumentPosition);
+    }
+);
+
+connection.onDocumentSymbol(
+    (request) => {
+        // get the current document
+        const document = documents.get(request.textDocument.uri);
+        if (document) {
+            const text = document.getText();
+            if (text) {
+                parser.parse(text);
+                if (parser.tree) {
+                    return parser.getOutline();
+                }
+            }
+        }
+
+        return [];
     }
 );
 

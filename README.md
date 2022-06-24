@@ -48,6 +48,9 @@ none
 
 This extension is currently in beta status.
 
+### 0.1.0
+Document outline view for MOOSE input files
+
 ### 0.0.5
 Add icon
 
