@@ -408,13 +408,13 @@ export class Warehouse {
         return this.instance;
     }
 
-    getSyntax(input_path: string, begin : Function, end: Function): Container {
+    getSyntax(input_path: string, begin: Function, end: Function): Container {
         var provider = this.getSyntaxProvider(input_path);
         var key = JSON.stringify(provider);
         if (key in this.syntax) {
             return this.syntax[key];
         } else {
-            if (begin ) { begin(); }
+            if (begin) { begin(); }
             var syntax = Container.fromProvider(provider);
             this.syntax[key] = syntax;
             if (end) { end(); }
