@@ -22,8 +22,6 @@ import {
 
 import {
     MooseLanguageSettings,
-    MooseSyntax,
-    ParseTree,
     serverError,
     serverDebug,
     serverStartWork,
@@ -31,11 +29,9 @@ import {
 } from './interfaces';
 
 import * as Syntax from './syntax';
-import { HITBlock, HITParameterList, HITParser } from './hit_parser';
+import { HITParser } from './hit_parser';
 
-import * as path from 'path';
 import * as fs from 'fs-plus';
-import * as cp from 'child_process';
 
 // import * as vscode from 'vscode';
 import { URI, Utils } from 'vscode-uri'
@@ -49,7 +45,6 @@ const warehouse = Syntax.Warehouse.getInstance();
 const insideBlockTag = /^\s*\[([^\]#\s]*)$/;
 const parameterCompletion = /^\s*[^\s#=\]]*$/;
 const otherParameter = /^\s*([^\s#=\]]+)\s*=\s*('\s*[^\s'#=\]]*(\s?)[^'#=\]]*|[^\s#=\]]*)$/;
-const mooseApp = /^(.*)-(opt|dbg|oprof|devel)$/;
 const stdVector = /^std::([^:]+::)?vector<([a-zA-Z0-9_]+)(,\s?std::\1allocator<\2>\s?)?>$/;
 
 // we cache the settings here so we don't have to pass them as function arguments
@@ -78,12 +73,6 @@ interface AppDir {
     file?: string;
     WSL?: string;
 }
-
-// each moose input file in the project dir could have its own moose app and
-// json/syntax associated this table points to the app dir for each editor path
-let appDirs: { [key: string]: AppDir } = {};
-let syntaxWarehouse: { [key: string]: MooseSyntax } = {};
-let offlineSyntax: string | null = null;
 
 // Clear the cache for the app associated with current file.
 // This is made available as a VSCode command.
@@ -279,7 +268,7 @@ function isParameterCompletion(line: string): boolean {
 }
 
 // formats the default value of a parameter
-function paramDefault(param: MooseSyntax): string | undefined {
+function paramDefault(param: Syntax.Type.Parameter): string | undefined {
     if (param.default) {
         // if (param.default.indexOf(' ') >= 0) {
         //     return `"${param.default}"`;

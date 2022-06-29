@@ -13,7 +13,6 @@ import {
     InitializeParams,
     DidChangeConfigurationNotification,
     CompletionItem,
-    CompletionItemKind,
     TextDocumentPositionParams,
     TextDocumentSyncKind,
     InitializeResult
@@ -29,14 +28,14 @@ import {
 } from './interfaces';
 
 import * as provider from './provider';
-import * as Syntax from './syntax';
-import { HITBlock, HITParameterList, HITParser } from './hit_parser';
-
-// get a syntax warehouse reference
-const syntax_warehouse = Syntax.Warehouse.getInstance();
+import { Validator } from './validator';
+import { HITParser } from './hit_parser';
 
 // build a parser instance for outline and diagnostics
 const parser = new HITParser();
+
+// build validator
+const validator = new Validator();
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
