@@ -48,6 +48,12 @@ none
 
 This extension is currently in beta status.
 
+
+### 0.3.0
+Added a hover provider to show parameter and type documentation in MOOSE input files
+Enabled formatting of test specs
+Updated syntax highlighting for test specs
+
 ### 0.2.0
 Added support for active/inactive parameters with completion, and responsive outline
 Added automatic indentation, commenting, autoclosing pairs (with Max Nezdyur)
