@@ -317,8 +317,10 @@ export class Container {
         }
 
         // handle block level action parameters first
-        for (n in b.actions) {
-            Object.assign(ret, b.actions[n].parameters);
+        if ('actions' in b && b.actions) {
+            for (n in b.actions) {
+                Object.assign(ret, b.actions[n].parameters);
+            }
         }
 
         // if no type is explicitly set check if a default value exists
@@ -326,11 +328,11 @@ export class Container {
 
         // if the type is known add the specific parameters
         if (currentType) {
-            if ('subblock_types' in b && currentType in b.subblock_types) {
+            if ('subblock_types' in b && b.subblock_types && currentType in b.subblock_types) {
                 // add parameters for known type
                 Object.assign(ret, b.subblock_types[currentType].parameters);
             }
-            if ('types' in b && currentType in b.types) {
+            if ('types' in b && b.types && currentType in b.types) {
                 // add parameters for known type
                 Object.assign(ret, b.types[currentType].parameters);
             }
@@ -408,7 +410,7 @@ export class Warehouse {
         return this.instance;
     }
 
-    getSyntax(input_path: string, begin: Function, end: Function): Container {
+    getSyntax(input_path: string, begin?: Function, end?: Function): Container {
         var provider = this.getSyntaxProvider(input_path);
         var key = JSON.stringify(provider);
         if (key in this.syntax) {

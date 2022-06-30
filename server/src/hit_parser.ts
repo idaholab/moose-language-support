@@ -95,104 +95,26 @@ export class HITParser {
         return blockList;
     }
 
-    private pos(point: Parser.Point): Position {
+    static pos(point: Parser.Point): Position {
         return { line: point.row, character: point.column };
     }
 
-    getDetailedOutline(): DocumentSymbol[] {
-        if (!this.tree) {
-            return [];
+    static isPosInNode(pos: Position, node: Parser.SyntaxNode): boolean {
+        var cs = node.startPosition;
+        var ce = node.endPosition;
+        // outside row range
+        if (pos.line < cs.row || pos.line > ce.row) {
+            return false;
         }
-        var self = this;
-
-        function traverse(node: Parser.SyntaxNode): DocumentSymbol[] {
-            var symbols: DocumentSymbol[] = [];
-            for (var i = 0, len = node.children.length; i < len; i++) {
-                var c = node.children[i];
-                if (c.type === 'top_block' || c.type === 'block') {
-                    // get block title
-                    var t = c.children[1];
-                    var block = t.text;
-                    if (block.slice(0, 2) === './') {
-                        block = block.slice(2);
-                    }
-
-                    symbols.push(DocumentSymbol.create(
-                        block,
-                        undefined,
-                        c.type === 'top_block' ? SymbolKind.Constructor : SymbolKind.Array,
-                        Range.create(self.pos(c.startPosition), self.pos(c.endPosition)),
-                        Range.create(self.pos(t.startPosition), self.pos(t.endPosition)),
-                        traverse(c)
-                    ));
-                } else if (c.type === 'parameter_definition') {
-                    var p = c.children[0];
-                    var param = p.text;
-                    symbols.push(DocumentSymbol.create(
-                        param,
-                        c.children[2].text,
-                        param == 'type' ? SymbolKind.TypeParameter : SymbolKind.Key,
-                        Range.create(self.pos(c.startPosition), self.pos(c.endPosition)),
-                        Range.create(self.pos(p.startPosition), self.pos(p.endPosition)),
-                        []
-                    ));
-                }
-            }
-            return symbols;
+        // in starting row but before starting column
+        if (pos.line === cs.row && pos.character < cs.column) {
+            return false;
         }
-
-        return traverse(this.tree.rootNode);
-    }
-
-    getOutline(): DocumentSymbol[] {
-        if (!this.tree) {
-            return [];
+        // in ending row but after ending column
+        if (pos.line === ce.row && pos.character > ce.column) {
+            return false;
         }
-        var self = this;
-
-        function traverse(node: Parser.SyntaxNode): DocumentSymbol[] {
-            var symbols: DocumentSymbol[] = [];
-
-            var active = self.getBlockParameter(node, 'active');
-            var active_list: string[] | undefined;
-            if (active) {
-                active_list = HITParser.explode(active);
-                if (active_list[0] == '__all__') {
-                    active = null;
-                }
-            }
-
-            var inactive_list = HITParser.explode(self.getBlockParameter(node, 'inactive') || '');
-
-            for (var i = 0, len = node.children.length; i < len; i++) {
-                var c = node.children[i];
-                if (c.type === 'top_block' || c.type === 'block') {
-                    // get block title
-                    var t = c.children[1];
-                    var block = t.text;
-                    if (block.slice(0, 2) === './') {
-                        block = block.slice(2);
-                    }
-
-                    console.log(block, active, active_list, inactive_list);
-                    if ((active_list && active_list.indexOf(block) < 0) || inactive_list.indexOf(block) >= 0) {
-                        continue;
-                    }
-
-                    symbols.push(DocumentSymbol.create(
-                        block,
-                        self.getBlockParameter(c, 'type') || undefined,
-                        c.type === 'top_block' ? SymbolKind.Constructor : SymbolKind.Array,
-                        Range.create(self.pos(c.startPosition), self.pos(c.endPosition)),
-                        Range.create(self.pos(t.startPosition), self.pos(t.endPosition)),
-                        traverse(c)
-                    ));
-                }
-            }
-            return symbols;
-        }
-
-        return traverse(this.tree.rootNode);
+        return true;
     }
 
     // Get the HIT syntax node for a block specified by a path. The path may either be
@@ -254,7 +176,7 @@ export class HITParser {
         return params;
     }
 
-    getBlockParameter(node: Parser.SyntaxNode, name: string): string | null {
+    getBlockParameter(node: Parser.SyntaxNode, name: string): string | undefined {
         for (var i = 0, len = node.children.length; i < len; i++) {
             var c = node.children[i];
             if (c.type === 'parameter_definition') {
@@ -268,7 +190,7 @@ export class HITParser {
                 }
             }
         }
-        return null;
+        return;
     }
 
     getPathParameters(path: string | string[]): HITParameterList {
@@ -285,26 +207,16 @@ export class HITParser {
             var ref = block.node.children;
             for (var i = 0, len = ref.length; i < len; i++) {
                 var c = ref[i];
+                // check if we are inside a block or top_block
                 if (c.type !== 'top_block' && c.type !== 'block' && c.type !== 'ERROR') {
                     continue;
                 }
 
-                // check if we are inside a block or top_block
-                var cs = c.startPosition;
-                var ce = c.endPosition;
-
                 // outside row range
-                if (p.line < cs.row || p.line > ce.row) {
+                if (!HITParser.isPosInNode(p, c)) {
                     continue;
                 }
-                // in starting row but before starting column
-                if (p.line === cs.row && p.character < cs.column) {
-                    continue;
-                }
-                // in ending row but after ending column
-                if (p.line === ce.row && p.character > ce.column) {
-                    continue;
-                }
+
                 // if the block does not contain a valid path subnode we give up
                 if (c.children.length < 2 || c.children[1].type !== 'block_path') {
                     return block;
@@ -334,6 +246,36 @@ export class HITParser {
 
         if (this.tree) {
             return recurseCurrentConfigPath({ path: [], node: this.tree.rootNode });
+        } else {
+            return null;
+        }
+    }
+
+    getParameterAtPosition(p: Position, node?: Parser.SyntaxNode): Parser.SyntaxNode | null {
+        function traverse(node: Parser.SyntaxNode): Parser.SyntaxNode | null {
+            var ref = node.children;
+            for (var i = 0, len = ref.length; i < len; i++) {
+                var c = ref[i];
+                var cs = c.startPosition;
+                var ce = c.endPosition;
+
+                // outside row range
+                if (!HITParser.isPosInNode(p, c)) {
+                    continue;
+                }
+
+                // first block_path node
+                if (c.type == 'parameter_definition') {
+                    return c;
+                } else {
+                    return traverse(c);
+                }
+            }
+            return null;
+        }
+
+        if (this.tree) {
+            return traverse(node || this.tree.rootNode);
         } else {
             return null;
         }

@@ -15,7 +15,9 @@ import {
     CompletionItem,
     TextDocumentPositionParams,
     TextDocumentSyncKind,
-    InitializeResult
+    InitializeResult,
+    Hover,
+    DocumentSymbolParams
 } from 'vscode-languageserver/node';
 
 import {
@@ -28,21 +30,16 @@ import {
 } from './interfaces';
 
 import * as provider from './provider';
-import { Validator } from './validator';
-import { HITParser } from './hit_parser';
+import { MooseOutline } from './outline';
+import { MooseValidator } from './validator';
+import { MooseHover } from './hover';
 
-// build a parser instance for outline and diagnostics
-const parser = new HITParser();
-
-// build validator
-const validator = new Validator();
+// Create a simple text document manager.
+const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
 const connection = createConnection(ProposedFeatures.all);
-
-// Create a simple text document manager.
-const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
@@ -72,7 +69,8 @@ connection.onInitialize((params: InitializeParams) => {
             completionProvider: {
                 resolveProvider: true
             },
-            documentSymbolProvider: true
+            documentSymbolProvider: true,
+            hoverProvider: true
         }
     };
     if (hasWorkspaceFolderCapability) {
@@ -206,34 +204,19 @@ connection.onDidChangeWatchedFiles(_change => {
     connection.console.log('We received an file change event');
 });
 
-// This handler provides the initial list of the completion items.
-connection.onCompletion(
-    (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
-        return provider.getSuggestions(_textDocumentPosition);
-    }
-);
+// build outline provider
+const outline = new MooseOutline(documents);
 
-connection.onDocumentSymbol(
-    (request) => {
-        // get the current document
-        const document = documents.get(request.textDocument.uri);
-        if (document) {
-            const text = document.getText();
-            if (text) {
-                parser.parse(text);
-                if (parser.tree) {
-                    if (globalSettings.detailedOutline) {
-                        return parser.getDetailedOutline();
-                    } else {
-                        return parser.getOutline();
-                    }
-                }
-            }
-        }
+// build validator
+const validator = new MooseValidator(documents);
 
-        return [];
-    }
-);
+// build hover provider
+const hover = new MooseHover(documents);
+
+// Register LSP handlers
+connection.onCompletion(provider.getSuggestions);
+connection.onDocumentSymbol((p) => outline.getInfo(p));
+connection.onHover((p) => hover.getInfo(p));
 
 // // This handler resolves additional information for the item selected in
 // // the completion list.

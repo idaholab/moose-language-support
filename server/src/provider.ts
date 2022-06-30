@@ -33,7 +33,6 @@ import { HITParser } from './hit_parser';
 
 import * as fs from 'fs-plus';
 
-// import * as vscode from 'vscode';
 import { URI, Utils } from 'vscode-uri'
 
 // HIT parser wrapper
