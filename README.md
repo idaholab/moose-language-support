@@ -3,18 +3,43 @@
 ## Features
 
 * Autocomplete MOOSE input files
-* Syntax highlighting for MOOSE input files
-* Format MOOSE input files
+* Syntax highlighting for MOOSE input files and `tests` specs
+* Format MOOSE input files and `tests` specs
+* Document outlines for MOOSE input files
+* Show parameter and object documentation on mouse hover
 * C++ class snippets for MOOSE development
 
 ### Autocomplete
 
-![autocomplete](images/autocomplete.png)
+![autocomplete](images/autocomplete1.gif)
+
+Autocomplete block names (even with multiple levels in one block header) and parameters.
+
+![autocomplete](images/autocomplete2.gif)
+
+Autocomplete object names such as MeshGenerators, Variables, UserObjects, Indicators, Markers, etc.
+
+### Document outline
+
+![outline](images/outline.gif)
+
+Outline of all blocks and subblocks (with their respective types). Outline respects `active` and `inactive` parameters. Autocompletion for block names in thos parameters is also supported.
+
+### Formatting
+
+![formatting](images/format_document.gif)
+
+Format input files and `tests` specs with the MOOSE HIT format tool.
+
+### Hover
+
+![formatting](images/hover.gif)
+
+Show class and parameter documentation strings when hovering with the mouse.
 
 ### Syntax highlighting
 
 Add syntax highlighting and snippets to MOOSE input files in VSCode.
-
 
 Syntax highlighting for:
 * Valid top level blocks
@@ -45,9 +70,6 @@ This extension contributes the following settings:
 
 none
 ## Release Notes
-
-This extension is currently in beta status.
-
 
 ### 0.3.0
 Added a hover provider to show parameter and type documentation in MOOSE input files
