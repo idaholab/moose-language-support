@@ -31,8 +31,8 @@ let statusDisposable: Disposable | null;
 
 export function activate(context: ExtensionContext) {
     // register hit formatter
-    languages.registerDocumentFormattingEditProvider('moose', {
-        provideDocumentFormattingEdits(document: TextDocument): TextEdit[] {
+    languages.registerDocumentFormattingEditProvider(['moose', 'moose-test-spec'], {
+        provideDocumentFormattingEdits: (document: TextDocument): TextEdit[] => {
             var style_file: string, style: string;
 
             style_file =
