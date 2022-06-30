@@ -9,7 +9,7 @@
 	"displayName": "MOOSE Language Support",
 	"icon": "images/icon.png",
 	"description": "Assists in writing MOOSE input files and code",
-	"version": "0.2.2",
+	"version": "0.2.3",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/idaholab/moose-language-support"
@@ -29,7 +29,7 @@
 	"capabilities": {
 		"virtualWorkspaces": {
 			"supported": false,
-			"description": "Obtaining syntax defenitions from MOOSE apps is not yet supported."
+			"description": "Obtaining syntax definitions from MOOSE apps is not yet supported."
 		}
 	},
 	"contributes": {
@@ -45,7 +45,8 @@
 				"id": "moose-test-spec",
 				"extensions": [
 					"tests"
-				]
+				],
+				"configuration": "./language-configuration.json"
 			}
 		],
 		"grammars": [

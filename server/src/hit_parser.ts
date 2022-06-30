@@ -59,7 +59,7 @@ export class HITParser {
     }
 
     // turns a parameter into an array of values
-    static explode(val: string) : string[] {
+    static explode(val: string): string[] {
         val ||= '';
         var match = val.match(/(^['"])(.*)\1$/);
         if (match) {
@@ -154,7 +154,7 @@ export class HITParser {
             var symbols: DocumentSymbol[] = [];
 
             var active = self.getBlockParameter(node, 'active');
-            var active_list : string[] | undefined;
+            var active_list: string[] | undefined;
             if (active) {
                 active_list = HITParser.explode(active);
                 if (active_list[0] == '__all__') {
@@ -174,7 +174,7 @@ export class HITParser {
                         block = block.slice(2);
                     }
 
-                    console.log(block,active,active_list,inactive_list);
+                    console.log(block, active, active_list, inactive_list);
                     if ((active_list && active_list.indexOf(block) < 0) || inactive_list.indexOf(block) >= 0) {
                         continue;
                     }
