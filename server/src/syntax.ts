@@ -309,7 +309,8 @@ export class Container {
     // get a list of parameters for the current block
     // if the type parameter is known add in class specific parameters
     getParameters(p: Type.TypedPath): Type.Parameters {
-        var currentType, n, ref1, ref2, ret: Type.Parameters = this.tree.global.parameters;
+        var currentType, n, ref1, ref2, ret: Type.Parameters = {};
+        Object.assign(ret, this.tree.global.parameters);
 
         var b = this.getSyntaxNode(p.path);
         if (b == null) {
