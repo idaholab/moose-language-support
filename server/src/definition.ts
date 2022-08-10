@@ -8,13 +8,13 @@ import {
     Position,
     TextDocument
 } from 'vscode-languageserver-textdocument';
-import { Hover, TextDocumentPositionParams, TextDocuments } from 'vscode-languageserver/node';
+import { DefinitionLink, LocationLink, Range, TextDocumentPositionParams, TextDocuments } from 'vscode-languageserver/node';
 import { URI, Utils } from 'vscode-uri'
 
 import * as Syntax from './syntax';
 import { HITParser } from './hit_parser';
 
-export class MooseHover {
+export class MooseDefinition {
     // syntax warehouse
     private warehouse: Syntax.Warehouse = Syntax.Warehouse.getInstance();
 
@@ -29,52 +29,57 @@ export class MooseHover {
         this.documents = documents;
     }
 
-    private generateHover(pos: Position, syntax: Syntax.Container): Hover | undefined {
+    private generateLink(pos: Position, syntax: Syntax.Container): DefinitionLink[] | undefined {
         // get block in input file
         const block = this.parser.getBlockAtPosition(pos);
         if (!block) {
             return;
         }
-
-        // check for type parameter
-        const type = this.parser.getBlockParameter(block.node, "type");
-
+        LocationLink.create
         // get the parameter definition under the cursor
         const decl = this.parser.getParameterAtPosition(pos, block.node);
 
-        if (decl && decl.children.length > 0) {
+        if (decl && decl.children.length > 2) {
             const name = decl.children[0].text;
+            const type_node = decl.children[2];
+            const type = type_node.text;
 
-            // are we on the parameter name or value?
-            if (HITParser.isPosInNode(pos, decl.children[0])) { // name
-                if (name == 'type') {
-                    return { contents: 'Type of the object' };
+            // are we on the value of the type parameter?
+            if (name == 'type' && HITParser.isPosInNode(pos, type_node)) {
+                var b = syntax.getSyntaxNode(block.path);
+                if (b == null) {
+                    return;
+                }
+                var fi: Syntax.Type.FileInfo | undefined;
+
+                if ('subblock_types' in b && b.subblock_types && type in b.subblock_types) {
+                    fi = b.subblock_types[type].file_info;
+                }
+                if ('types' in b && b.types && type in b.types) {
+                    fi = b.types[type].file_info;
                 }
 
-                // get corresponsing syntax
-                const params = syntax.getParameters({ path: block.path, type: type });
-
-                if (name in params) {
-                    return { contents: params[name].description };
-                }
-
-            } else if (decl.children.length > 2 && HITParser.isPosInNode(pos, decl.children[2])) {
-                const value = decl.children[2].text;
-                if (name == 'type') {
-                    const types = syntax.getTypes(block.path);
-                    for (var item of types) {
-                        if (item.label == value) {
-                            return { contents: item.documentation || '' };
-                        }
+                if (fi) {
+                    var dl: DefinitionLink[] = [];
+                    for (var file in fi) {
+                        const uri = URI.file(file);
+                        const line = fi[file] - 1;
+                        const range = {
+                            start: { line: line, character: 0 },
+                            end: { line: line, character: 1000 }
+                        };
+                        dl.push(LocationLink.create(uri.toString(), range, range));
                     }
+                    return dl;
                 }
             }
+
+            return;
         }
 
-        return;
     }
 
-    getInfo(params: TextDocumentPositionParams): Hover | undefined {
+    getInfo(params: TextDocumentPositionParams): DefinitionLink[] | undefined {
         // the the current document's URI
         let uri: URI = URI.parse(params.textDocument.uri);
 
@@ -96,7 +101,7 @@ export class MooseHover {
                         this.parser.parse(text);
                         if (this.parser.tree) {
                             // everything is prepared, now compute the completion
-                            return this.generateHover(params.position, syntax);
+                            return this.generateLink(params.position, syntax);
                         }
                     }
                 }
@@ -106,4 +111,5 @@ export class MooseHover {
             }
         }
     }
+
 }

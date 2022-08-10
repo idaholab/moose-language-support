@@ -71,6 +71,9 @@ This extension contributes the following settings:
 none
 ## Release Notes
 
+### 0.5.0
+Added a definition provider to jump from `type` parameter values in inout files to the class registration in the source code
+
 ### 0.3.0
 Added a hover provider to show parameter and type documentation in MOOSE input files
 Enabled formatting of test specs

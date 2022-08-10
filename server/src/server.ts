@@ -33,6 +33,7 @@ import * as provider from './provider';
 import { MooseOutline } from './outline';
 import { MooseValidator } from './validator';
 import { MooseHover } from './hover';
+import { MooseDefinition } from './definition';
 
 // Create a simple text document manager.
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
@@ -70,7 +71,8 @@ connection.onInitialize((params: InitializeParams) => {
                 resolveProvider: true
             },
             documentSymbolProvider: true,
-            hoverProvider: true
+            hoverProvider: true,
+            definitionProvider: true
         }
     };
     if (hasWorkspaceFolderCapability) {
@@ -213,10 +215,14 @@ const validator = new MooseValidator(documents);
 // build hover provider
 const hover = new MooseHover(documents);
 
+// build definition provider
+const definition = new MooseDefinition(documents);
+
 // Register LSP handlers
 connection.onCompletion(provider.getSuggestions);
 connection.onDocumentSymbol((p) => outline.getInfo(p));
 connection.onHover((p) => hover.getInfo(p));
+connection.onDefinition((p) => definition.getInfo(p));
 
 // // This handler resolves additional information for the item selected in
 // // the completion list.
