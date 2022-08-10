@@ -33,7 +33,7 @@ export class MooseHover {
         // get block in input file
         const block = this.parser.getBlockAtPosition(pos);
         if (!block) {
-            return { contents: "NO BLOCK FOUND!" };
+            return;
         }
 
         // check for type parameter
@@ -102,7 +102,7 @@ export class MooseHover {
                 }
             } catch (e: any) {
                 //notifyError(e.message);
-                return { contents: 'ERROR: ' + e.stack };
+                return;
             }
         }
     }
