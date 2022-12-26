@@ -182,10 +182,14 @@ function computeValueCompletion(param: Syntax.Type.Parameter, request: TextDocum
             ref = param.options.split(' ');
             for (i = 0, len = ref.length; i < len; i++) {
                 option = ref[i];
-                completions.push({
+                var item: CompletionItem = {
                     label: option,
                     kind: CompletionItemKind.EnumMember
-                });
+                };
+                if ('option_docs' in param && option in param.option_docs) {
+                    item['documentation'] = param.option_docs[option];
+                }
+                completions.push(item);
             }
             return completions;
         }

@@ -28,7 +28,8 @@ export namespace Type {
         required: boolean,
         deprecated: boolean,
         out_of_range_allowed: boolean,
-        options: string
+        options: string,
+        option_docs: { [key: string]: string }
     };
     export type Parameters = { [key: string]: Parameter };
 
