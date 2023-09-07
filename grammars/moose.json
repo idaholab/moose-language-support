@@ -82,7 +82,7 @@
       }
     },
     {
-      "match": "\\bfamily\\s*(=)\\s*(LAGRANGE|MONOMIAL|HERMITE|SCALAR|HIERARCHIC|CLOUGH|XYZ|SZABAB|BERNSTEIN|L2_LAGRANGE|L2_HIERARCHIC)\\b",
+      "match": "\\bfamily\\s*(=)\\s*(LAGRANGE|LAGRANGE_VEC|MONOMIAL|MONOMIAL_VEC|HERMITE|SCALAR|HIERARCHIC|SIDE_HIERARCHIC|CLOUGH|XYZ|SZABAB|BERNSTEIN|RATIONAL_BERNSTEIN|L2_LAGRANGE|L2_HIERARCHIC)\\b",
       "captures": {
         "1": {
           "name": "keyword.operator.assignment.moose"
@@ -244,7 +244,7 @@
     "execute_on": {
       "patterns": [
         {
-          "match": "(?i)\\b(initial|linear|nonlinear|timestep_end|timestep_begin|final|custom)\\b",
+          "match": "(?i)\\b(none|initial|linear|nonlinear|timestep_end|timestep_begin|multiapp_fixed_point_begin|multiapp_fixed_point_begin|final|custom|always|forward|adjoint)\\b",
           "name": "constant.language.moose"
         }
       ]
