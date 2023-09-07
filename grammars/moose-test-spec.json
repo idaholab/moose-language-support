@@ -69,7 +69,7 @@
       }
     },
     {
-      "match": "\\b(cli_args|skip|expect_err|expect_out|group|design|requirement|issues|detail)\\s*(=)\\s*(.*)",
+      "match": "\\b(cli_args|skip|expect_err|expect_out|group|design|requirement|issues|detail|min_parallel|max_parallel|mesh_mode|allow_warnings|allow_unused|prereq|recover|custom_cmp|rel_err|abs_zero)\\s*(=)\\s*(.*)",
       "captures": {
         "1": {
           "name": "keyword.control.moose"
