@@ -93,7 +93,7 @@
       }
     },
     {
-      "match": "\\belem_type\\s*(=)\\s*(EDGE|EDGE2|EDGE3|EDGE4|QUAD|QUAD4|QUAD8|QUAD9|TRI3|TRI6|HEX|HEX8|HEX20|HEX27|TET4|TET10|PRISM6|PRISM15|PRISM18)\\b",
+      "match": "\\belem_type\\s*(=)\\s*(EDGE|EDGE2|EDGE3|EDGE4|QUAD|QUAD4|QUAD8|QUAD9|TRI3|TRI6|HEX|HEX8|HEX20|HEX27|TET4|TET10|PRISM6|PRISM15|PRISM18|PYRAMID5|PYRAMID13|PYRAMID14)\\b",
       "captures": {
         "1": {
           "name": "keyword.operator.assignment.moose"
