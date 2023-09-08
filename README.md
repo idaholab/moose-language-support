@@ -71,6 +71,9 @@ This extension contributes the following settings:
 none
 ## Release Notes
 
+### 0.6.0
+Additional snippets for finite volume. Improved tests syntax.
+
 ### 0.5.1
 Support for the new MooseEnum item documentation strings from https://github.com/idaholab/moose/issues/23004
 
