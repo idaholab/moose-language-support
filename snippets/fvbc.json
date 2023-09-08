@@ -1,0 +1,22 @@
+{
+  "MOOSE finite volume Dirichlet boundary condition header": {
+    "prefix": "fv-dirichlet-bc-h",
+    "body": "#pragma once\n\n#include \"FVDirichletBC.h\"\n\n/**\n *\n */\nclass ${1} : public FVDirichletBC\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  virtual ADReal boundaryValue(const FaceInfo & fi) const override;\n};",
+    "description": "MOOSE finite volume Dirichlet boundary condition header"
+  },
+  "MOOSE finite volume flux boundary condition header": {
+    "prefix": "fv-flux-bc-h",
+    "body": "#pragma once\n\n#include \"FVFluxBC.h\"\n\nclass ${1};\n\nInputParameters\n${1}::validParams();\n\n/**\n *\n */\nclass ${1} : public FVFluxBC\n{\npublic:\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  virtual ADReal computeQpResidual() override;\n};",
+    "description": "MOOSE finite volume flux boundary condition header"
+  },
+  "MOOSE finite volume Dirichlet boundary condition implementation": {
+    "prefix": "fv-dirichlet-bc-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = FVDirichletBC::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : FVDirichletBC(parameters)\n{\n}\n\nADReal\n${1}::boundaryValue(const FaceInfo & fi) const\n{\n}\n",
+    "description": "MOOSE finite volume Dirichlet boundary condition implementation"
+  },
+  "MOOSE finite volume flux boundary condition implementation": {
+    "prefix": "fv-flux-bc-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = FVFluxBC::validParams();\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : FVFluxBC(parameters)\n{\n}\n\nADReal\n${1}::computeQpResidual()\n{\n}\n",
+    "description": "MOOSE finite volume flux boundary condition implementation"
+  }
+}

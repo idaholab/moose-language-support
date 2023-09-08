@@ -1,0 +1,22 @@
+{
+  "MOOSE FV elemental kernel header": {
+    "prefix": "fv-elemental-kernel-h",
+    "body": "#pragma once\n\n#include \"FVElementalKernel.h\"\n\n/**\n *\n */\nclass ${1} : public FVElementalKernel\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  virtual ADReal computeQpResidual() override;\n};",
+    "description": "MOOSE finite volume flux kernel header"
+  },
+  "MOOSE FV flux kernel header": {
+    "prefix": "fv-flux-kernel-h",
+    "body": "#pragma once\n\n#include \"FVFluxKernel.h\"\n\n/**\n *\n */\nclass ${1} : public FVFluxKernel\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  virtual ADReal computeQpResidual() override;\n};",
+    "description": "MOOSE finite volume elemental kernel header"
+  },
+  "MOOSE FV elemental kernel implementation": {
+    "prefix": "fv-elemental-kernel-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = FVElementalKernel::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : FVElementalKernel(parameters)\n{\n}\n\nADReal\n${1}::computeQpResidual()\n{\n}\n}",
+    "description": "MOOSE finite volume elemental kernel implementation"
+  },
+  "MOOSE FV flux kernel implementation": {
+    "prefix": "fv-flux-kernel-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = FVFluxKernel::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : FVFluxKernel(parameters)\n{\n}\n\nADReal\n${1}::computeQpResidual()\n{\n}\n}",
+    "description": "MOOSE finite volume flux kernel implementation"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "MOOSE functor material header": {
+    "prefix": "functor-material-h",
+    "body": "#pragma once\n\n#include \"FunctorMaterial.h\"\n\n/**\n *\n */\nclass ${1} : public FunctorMaterial\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\nprotected:\n};",
+    "description": "MOOSE functor material header"
+  },
+  "MOOSE functor material implementation": {
+    "prefix": "functor-material-c",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = FunctorMaterial::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters)\n  : FunctorMaterial(parameters)\n{\n  const std::set<ExecFlagType> clearance_schedule(_execute_enum.begin(), _execute_enum.end());\n  addFunctorProperty<GenericReal<is_ad>>(\n\"${2}\",\n[this](const auto & r, const auto & t) -> ADReal\n{\n\nreturn 0;\n},\n  clearance_schedule);}\n\nvoid\n",
+    "description": "MOOSE functor material implementation"
+  }
+}
