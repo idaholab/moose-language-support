@@ -9,7 +9,7 @@
 	"displayName": "MOOSE Language Support",
 	"icon": "images/icon.png",
 	"description": "Assists in writing MOOSE input files and code",
-	"version": "0.5.1",
+	"version": "0.6.0",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/idaholab/moose-language-support"
