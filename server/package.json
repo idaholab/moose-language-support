@@ -17,7 +17,7 @@
         "vscode-languageserver": "^7.0.0",
         "vscode-languageserver-textdocument": "^1.0.4",
         "vscode-uri": "^3.0.3",
-        "web-tree-sitter": "^0.16.4"
+        "web-tree-sitter": "^0.20.8"
     },
     "scripts": {},
     "devDependencies": {

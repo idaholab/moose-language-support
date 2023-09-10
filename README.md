@@ -71,6 +71,11 @@ This extension contributes the following settings:
 none
 ## Release Notes
 
+### 0.6.2
+Update tree-sitter-hit WASM for VSCode 1.82
+### 0.6.1
+Revert WASP based formatter
+
 ### 0.6.0
 Additional snippets for finite volume. Improved tests syntax.
 
