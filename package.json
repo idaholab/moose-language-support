@@ -72,11 +72,19 @@
 			},
 			{
 				"language": "cpp",
+				"path": "./snippets/fvkernel.json"
+			},
+			{
+				"language": "cpp",
 				"path": "./snippets/auxkernel.json"
 			},
 			{
 				"language": "cpp",
 				"path": "./snippets/bc.json"
+			},
+			{
+				"language": "cpp",
+				"path": "./snippets/fvbc.json"
 			},
 			{
 				"language": "cpp",
@@ -125,6 +133,10 @@
 			{
 				"language": "cpp",
 				"path": "./snippets/material.json"
+			},
+			{
+				"language": "cpp",
+				"path": "./snippets/functormaterial.json"
 			},
 			{
 				"language": "cpp",
