@@ -29,7 +29,7 @@ export const clientDataSend = new NotificationType<string>('clientDataSend');
 
 let statusDisposable: Disposable | null;
 
-export function activate(context: ExtensionContext) {
+export async function activate(context: ExtensionContext) {
     // register hit formatter
     languages.registerDocumentFormattingEditProvider([{ scheme: "file", language: 'moose' }, { scheme: "file", language: 'moose-test-spec' }], {
         provideDocumentFormattingEdits: (document: TextDocument): TextEdit[] => {
@@ -64,6 +64,7 @@ export function activate(context: ExtensionContext) {
     // The server is implemented in node
     const serverModule = context.asAbsolutePath(
         path.join('server', 'out', 'server.js')
+        // path.join('server', 'out', 'server_debug.js')
     );
 
     // The debug options for the server
@@ -80,6 +81,21 @@ export function activate(context: ExtensionContext) {
             options: debugOptions
         }
     };
+
+    // const serverOptions: ServerOptions = {
+    //     command: '/home/schwd/Programs/moose/test/moose_test-dbg',
+    //     args: ['--language-server'],
+    //     transport: TransportKind.stdio
+    // };
+
+    // const serverOptions: ServerOptions = {
+    //     run: { module: serverModule, transport: TransportKind.stdio /*ipc*/ },
+    //     debug: {
+    //         module: serverModule,
+    //         transport: TransportKind.stdio /*ipc*/,
+    //         options: debugOptions
+    //     }
+    // };
 
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {
