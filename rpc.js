@@ -55,7 +55,6 @@ process.stdin.on('readable', () => {
       }
     }
   }
-
   // input exhausted and no header found
   if (expect === undefined)
     return;
@@ -94,8 +93,8 @@ function processClientMessage(data) {
   }
 
   // check if the request has a textdocument param
-  uri = message?.params?.textDocument?.uri;
-  const file_schema;
+  let uri = message?.params?.textDocument?.uri;
+  const file_schema = 'file://';
   if (uri) {
     let schema = uri.substr(0, file_schema.length);
     if (schema == 'file_schema') {
