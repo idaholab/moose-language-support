@@ -1,7 +1,26 @@
+const fs = require('fs');
 const re = /^Content-length: (\d+)$/
 
-const exectuable = '/home/schwd/Programs/moose/test/moose_test-opt'
+//const exectuable = '/home/schwd/Programs/moose/test/moose_test-opt'
+const exectuable = '/Users/schwd/Programs/moose/test/moose_test-opt'
 let editor_initialization = undefined;
+
+// canned capabilities reply
+const init_reply = {
+  "jsonrpc": "2.0",
+  "result": {
+    "capabilities": {
+      "completionProvider": true,
+      "definitionProvider": true,
+      "documentSymbolProvider": true,
+      "hoverProvider": true,
+      "textDocumentSync": {
+        "change": 1,
+        "openClose": true
+      }
+    }
+  }
+};
 
 //
 // launch and hook up child process
@@ -11,9 +30,7 @@ child = spawn(exectuable, ['--language-server']);
 child.stdin.setEncoding = 'utf-8';
 
 // pass through stdout
-child.stdout.on('data', (data) => {
-  process.stdout.write(data);
-});
+child.stdout.on('data', processServerMessage);
 
 //
 // Hook up proxy server stdin
@@ -38,7 +55,7 @@ process.stdin.on('readable', () => {
       }
     }
   }
-  
+
   // input exhausted and no header found
   if (expect === undefined)
     return;
@@ -48,33 +65,59 @@ process.stdin.on('readable', () => {
   while ((cont = process.stdin.read()) !== null) {
     data += cont;
     if (data.length > expect)
-	  console.log("POOP!");
+      console.log("POOP!");
   }
-  processMessage(data);
+  processClientMessage(data);
 });
 
 //
 // process message from client
 //
-function processMessage(data)
-{
+function processClientMessage(data) {
   // parse data and do stuff (e.g. select correct child process)
   const message = JSON.parse(data);
 
-  // cache the initialization message
-  if (message.method == 'initialize')
-  {
+  // cache the initialization message and send canned reply
+  if (message.method == 'initialize') {
     editor_initialization = data;
     console.log('cached initialization request');
+    // return canned reply
+    let init_reply_text = JSON.stringify({ id: message.id, ...init_reply });
+    let size = init_reply_text.length;
+    process.stdout.write(`Content-length: ${size}\r\n\r\n${init_reply_text}\n`);
+    return;
   }
-	
-  // pass on to child process 
+
+  // drop initialized notification
+  if (message.method == 'initialized') {
+    return;
+  }
+
+  // check if the request has a textdocument param
+  uri = message?.params?.textDocument?.uri;
+  const file_schema;
+  if (uri) {
+    let schema = uri.substr(0, file_schema.length);
+    if (schema == 'file_schema') {
+      file = uri.substr(file_schema.length);
+    }
+  }
+
+  // pass on to child process
   let size = data.length
   child.stdin.write(`Content-length: ${size}\r\n\r\n${data}\n`);
 }
 
-// hang around forever 
+//
+// process message from the Server
+//
+function processServerMessage(data) {
+  //
+  process.stdout.write(data);
+}
+
+// hang around forever
 let done = false;
-(function wait () {
-   if (!done) setTimeout(wait, 1000);
+(function wait() {
+  if (!done) setTimeout(wait, 1000);
 })();
