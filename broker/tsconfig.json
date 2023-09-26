@@ -1,6 +1,6 @@
 {
 	"compilerOptions": {
-		"module": "commonjs",
+		"module": "node16",
 		"target": "es2020",
 		"lib": ["es2020"],
 		"outDir": "out",
@@ -13,10 +13,5 @@
 	"exclude": [
 		"node_modules",
 		".vscode-test"
-	],
-	"references": [
-		{ "path": "./client" },
-		{ "path": "./server" },
-		{ "path": "./broker" }
 	]
 }

@@ -3,8 +3,10 @@ import * as cp from 'child_process';
 import * as path from 'path';
 import { ChildProcess } from 'node:child_process';
 
-const re = /^Content-length: (\d+)$/
-const spawn = require('child_process').spawn;
+var debug = await fs.open("/home/schwd/rpc.log", 'w');
+debug.write('Started...\n');
+
+const re = /^content-length: (\d+)\r\n\r\n(.*)$/
 
 const exectuable = '/Users/schwd/Programs/moose/test/moose_test-opt'
 let editor_initialization: string | null = null;
@@ -57,7 +59,7 @@ class LSPChildProcess {
       // Which we will intercept.
       this.status = ChildStatus.Running;
     } else {
-      console.log("haven't received an editor_initialization yet.")
+      broker.clientMessage("Haven't received an editor_initialization yet.", 1)
       this.status = ChildStatus.Starting;
     }
 
@@ -74,21 +76,46 @@ class LSPChildProcess {
 // map from MooseExecutablePath to child process
 interface LSPChildProcessList { [key: MooseExecutablePath]: LSPChildProcess }[];
 
+// canned capabilities reply
+const init_reply = {
+  "jsonrpc": "2.0",
+  "result": {
+    "capabilities": {
+      "completionProvider": true,
+      "definitionProvider": true,
+      "documentSymbolProvider": true,
+      "hoverProvider": true,
+      "textDocumentSync": {
+        "change": 1,
+        "openClose": true
+      }
+    }
+  }
+};
 // Main broker class
 class LanguageSeverBroker {
+  private expect: number | null;
+  private data: string;
+
   constructor() {
+    debug.write("LanguageSeverBroker constructor\n");
+
     // set proper encoding
     process.stdin.setEncoding('utf8');
 
     // read stdin
+    this.expect = null;
+
     process.stdin.on('readable', () => {
       let expect: number | undefined = undefined;
       let data;
       let header;
       while ((header = process.stdin.read()) !== null) {
         const lines = header.split('\r\n');
+        debug.write('readable header:' + JSON.stringify(lines) + '\n');
+
         if (lines.length > 1) {
-          const content_length = lines[0].match(re);
+          const content_length = lines[0].toLowerCase().match(re);
           if (content_length) {
             expect = parseInt(content_length[1]);
             data = lines.slice(2).join('\r\n');
@@ -100,14 +127,22 @@ class LanguageSeverBroker {
       if (expect === undefined)
         return;
 
+      debug.write('readable data:' + data + '\n');
+      debug.write('readable data length vs expect :' + data.length + ' ' + expect + '\n');
+
       // Use a loop to make sure we read all available data
       let cont;
       while ((cont = process.stdin.read()) !== null) {
+        debug.write('readable cont:' + cont + '\n');
+
         data += cont;
+        debug.write('readable data length vs expect :' + data.length + ' ' + expect + '\n');
+
         if (data.length > expect)
-          console.log("unexpected message length!");
+          this.clientMessage("unexpected message length!", 1);
       }
-      this.processClientMessage(data);
+      if (data.length == expect)
+        this.processClientMessage(data);
     });
 
     // hang around forever
@@ -116,23 +151,6 @@ class LanguageSeverBroker {
       if (!done) setTimeout(wait, 1000);
     })();
   }
-
-  // canned capabilities reply
-  private init_reply: {
-    "jsonrpc": "2.0",
-    "result": {
-      "capabilities": {
-        "completionProvider": true,
-        "definitionProvider": true,
-        "documentSymbolProvider": true,
-        "hoverProvider": true,
-        "textDocumentSync": {
-          "change": 1,
-          "openClose": true
-        }
-      }
-    }
-  };
 
   // child process list
   children: LSPChildProcessList = {};
@@ -225,16 +243,18 @@ class LanguageSeverBroker {
   //
   async processClientMessage(data) {
     // parse data and do stuff (e.g. select correct child process)
+    debug.write('processClientMessage data:\n' + data + '\n');
+
     const message = JSON.parse(data);
 
     // cache the initialization message and send canned reply
     if (message.method == 'initialize') {
       editor_initialization = data;
-      console.log('cached initialization request');
       // return canned reply
-      let init_reply_text = JSON.stringify({ ...this.init_reply, id: message.id });
-      let size = init_reply_text.length;
-      process.stdout.write(`Content-length: ${size}\r\n\r\n${init_reply_text}\n`);
+      process.stdout.write(this.preparePackage({ ...init_reply, id: message.id }));
+      this.clientMessage('cached initialization request');
+      debug.write("this.clientMessage sent\n");
+
       return;
     }
 
@@ -269,6 +289,8 @@ class LanguageSeverBroker {
     let child: LSPChildProcess = await this.getChild(file);
     let size = data.length
     child.write(`Content-length: ${size}\r\n\r\n${data}\n`);
+
+    debug.write("passed to child process\n" + data + '\n');
   }
 
   //
@@ -286,6 +308,37 @@ class LanguageSeverBroker {
     process.stdout.write(data);
   }
 
+  //
+  // Send a message to the client
+  //
+  clientMessage(msg: string, type: 1 | 2 | 3 | 4 | 5 = 3) {
+    process.stdout.write(this.preparePackage({
+      method: 'window/showMessage',
+      params: {
+        type: type,
+        message: msg
+      }
+    }));
+  }
+
+  //
+  // Formats a piece of data to be sent using JSONRPC
+  //
+  preparePackage(data: string): string;
+  preparePackage(data: object): string;
+  preparePackage(data: unknown): string {
+    let stringified;
+    if (typeof data === 'string') {
+      stringified = data;
+    } else {
+      stringified = JSON.stringify(data);
+    }
+    let size = stringified.length
+    let text = `Content-Length: ${size}\r\n\r\n${stringified}\n`;
+    debug.write("preparePackage: " + text);
+    return text;
+  }
 }
 
+debug.write('constructing...\n');
 let broker = new LanguageSeverBroker();

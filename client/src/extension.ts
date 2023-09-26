@@ -63,7 +63,7 @@ export async function activate(context: ExtensionContext) {
 
     // The server is implemented in node
     const serverModule = context.asAbsolutePath(
-        path.join('server', 'out', 'server.js')
+        path.join('broker', 'out', 'rpc.js')
         // path.join('server', 'out', 'server_debug.js')
     );
 
@@ -82,12 +82,6 @@ export async function activate(context: ExtensionContext) {
     //     }
     // };
 
-    const serverOptions: ServerOptions = {
-        command: '/home/schwd/Programs/moose/test/moose_test-dbg',
-        args: ['--language-server'],
-        transport: TransportKind.stdio
-    };
-
     // const serverOptions: ServerOptions = {
     //     command: '/home/schwd/Programs/moose/test/moose_test-dbg',
     //     args: ['--language-server'],
@@ -95,22 +89,28 @@ export async function activate(context: ExtensionContext) {
     // };
 
     // const serverOptions: ServerOptions = {
-    //     run: { module: serverModule, transport: TransportKind.stdio /*ipc*/ },
-    //     debug: {
-    //         module: serverModule,
-    //         transport: TransportKind.stdio /*ipc*/,
-    //         options: debugOptions
-    //     }
+    //     command: '/home/schwd/Programs/moose/test/moose_test-dbg',
+    //     args: ['--language-server'],
+    //     transport: TransportKind.stdio
     // };
+
+    const serverOptions: ServerOptions = {
+        run: { module: serverModule, transport: TransportKind.stdio /*ipc*/ },
+        debug: {
+            module: serverModule,
+            transport: TransportKind.stdio /*ipc*/,
+            options: debugOptions
+        }
+    };
 
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {
         // Register the server for MOOSE input files
-        documentSelector: [{ scheme: 'file', language: 'moose' }],
-        synchronize: {
-            // Notify the server about file changes to '.clientrc files contained in the workspace
-            fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
-        }
+        documentSelector: [{ scheme: 'file', language: 'moose' }]
+        // synchronize: {
+        //     // Notify the server about file changes to '.clientrc files contained in the workspace
+        //     fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
+        // }
     };
 
     // Create the language client and start the client.
