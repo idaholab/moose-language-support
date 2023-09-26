@@ -2,11 +2,12 @@ import * as fs from 'node:fs/promises';
 import * as cp from 'child_process';
 import * as path from 'path';
 import { ChildProcess } from 'node:child_process';
+import internal from 'node:stream';
 
 var debug = await fs.open("/home/schwd/rpc.log", 'w');
 debug.write('Started...\n');
 
-const re = /^content-length: (\d+)\r\n\r\n(.*)$/
+const re = /^[Cc]ontent-[Ll]ength: (\d+)\r\n\r\n([\s\S]*)/;
 
 const exectuable = '/Users/schwd/Programs/moose/test/moose_test-opt'
 let editor_initialization: string | null = null;
@@ -30,12 +31,72 @@ interface MooseExecutable {
 // from file path to executable
 interface MooseExecutableCache { [key: InputFilePath]: MooseExecutable }[];
 
+//
+// Formats a piece of data to be sent using JSONRPC
+//
+function preparePackage(data: string): string;
+function preparePackage(data: object): string;
+function preparePackage(data: unknown): string {
+  let stringified;
+  if (typeof data === 'string') {
+    stringified = data;
+  } else {
+    stringified = JSON.stringify(data);
+  }
+  let size = stringified.length;
+  let text = `Content-Length: ${size}\r\n\r\n${stringified}`;
+  return text;
+}
+
+// RPC stream manager class
+class RPCStreamReader {
+  private buffer: string;
+
+  constructor(stream: internal.Readable, callback: Function) {
+    this.buffer = "";
+    const re = /^[Cc]ontent-[Ll]ength: (\d+)\r\n\r\n([\s\S]*)/;
+
+    stream.setEncoding('utf-8');
+    stream.on("readable", () => {
+      // read available data
+      let data;
+      while ((data = stream.read()) !== null) {
+        this.buffer += data;
+      }
+
+      // try to parse the data
+      while (this.buffer.length > 0) {
+        const header = this.buffer.match(re);
+
+        // do we have a complete header?
+        if (!header) {
+          return;
+        }
+
+        let expect = parseInt(header[1]);
+        let body = header[2];
+
+        // if we do not have enough data, we need for more to stream in
+        if (body.length < expect) {
+          return;
+        }
+
+        // consume as much data as we need
+        callback(body.substring(0, expect));
+
+        // put the rest into the message buffer
+        this.buffer = body.substring(expect);
+      }
+    });
+  }
+}
+
 // child process descriptor for a MOOSE executable
 class LSPChildProcess {
   private process: cp.ChildProcess | null;
   private executable: MooseExecutable;
   private status: ChildStatus;
-  private message_queue: string[]; // not used yet
+  private reader: RPCStreamReader;
 
   constructor(executable_: MooseExecutable, broker: LanguageSeverBroker) {
     this.process = null;
@@ -43,29 +104,39 @@ class LSPChildProcess {
     this.executable = executable_;
 
     // now spawn the process
-    let process: ChildProcess = cp.spawn(executable_.path, ['--language-server'], {
+    let child: ChildProcess = cp.spawn(executable_.path, ['--language-server'], {
       stdio: ['pipe', 'pipe', 'inherit']
     });
 
+    child.on('error', () => {
+      broker.clientMessage("MOOSE language server process died.", 1)
+      this.status = ChildStatus.Stopped;
+    })
+
     // hook up the handlers
-    process.stdout?.setEncoding('utf-8');
-    process.stdout?.on('data', broker.processServerMessage);
+    if (child.stdout) {
+      this.reader = new RPCStreamReader(child.stdout, (data) => { broker.processServerMessage(data); });
+    }
 
     // send initialization message
     if (editor_initialization !== null) {
       let size = editor_initialization.length;
-      process.stdin?.write(`Content-length: ${size}\r\n\r\n${editor_initialization}\n`);
+      let success = child.stdin?.write(`Content-length: ${size}\r\n\r\n${editor_initialization}\n`);
       // This will elicit a capabilities reply from the MOOSE executable.
       // Which we will intercept.
-      this.status = ChildStatus.Running;
+      if (success) {
+        this.status = ChildStatus.Running;
+      } else {
+        broker.clientMessage("Unable to launch MOOSE language server process.", 1)
+        this.status = ChildStatus.Stopped;
+      }
     } else {
       broker.clientMessage("Haven't received an editor_initialization yet.", 1)
       this.status = ChildStatus.Starting;
     }
 
     // and update the child process list
-    this.process = process;
-    this.message_queue = [];
+    this.process = child;
   }
 
   write(message: string) {
@@ -84,7 +155,7 @@ const init_reply = {
       "completionProvider": true,
       "definitionProvider": true,
       "documentSymbolProvider": true,
-      "hoverProvider": true,
+      "hoverProvider": false,
       "textDocumentSync": {
         "change": 1,
         "openClose": true
@@ -92,58 +163,16 @@ const init_reply = {
     }
   }
 };
+
 // Main broker class
 class LanguageSeverBroker {
-  private expect: number | null;
-  private data: string;
+  private reader: RPCStreamReader;
 
   constructor() {
     debug.write("LanguageSeverBroker constructor\n");
 
-    // set proper encoding
-    process.stdin.setEncoding('utf8');
-
-    // read stdin
-    this.expect = null;
-
-    process.stdin.on('readable', () => {
-      let expect: number | undefined = undefined;
-      let data;
-      let header;
-      while ((header = process.stdin.read()) !== null) {
-        const lines = header.split('\r\n');
-        debug.write('readable header:' + JSON.stringify(lines) + '\n');
-
-        if (lines.length > 1) {
-          const content_length = lines[0].toLowerCase().match(re);
-          if (content_length) {
-            expect = parseInt(content_length[1]);
-            data = lines.slice(2).join('\r\n');
-            break;
-          }
-        }
-      }
-      // input exhausted and no header found
-      if (expect === undefined)
-        return;
-
-      debug.write('readable data:' + data + '\n');
-      debug.write('readable data length vs expect :' + data.length + ' ' + expect + '\n');
-
-      // Use a loop to make sure we read all available data
-      let cont;
-      while ((cont = process.stdin.read()) !== null) {
-        debug.write('readable cont:' + cont + '\n');
-
-        data += cont;
-        debug.write('readable data length vs expect :' + data.length + ' ' + expect + '\n');
-
-        if (data.length > expect)
-          this.clientMessage("unexpected message length!", 1);
-      }
-      if (data.length == expect)
-        this.processClientMessage(data);
-    });
+    // set up RPC reader
+    this.reader = new RPCStreamReader(process.stdin, (data) => { this.processClientMessage(data); });
 
     // hang around forever
     let done = false;
@@ -225,10 +254,15 @@ class LanguageSeverBroker {
   }
 
   async getChild(input_path: InputFilePath): Promise<LSPChildProcess> {
+    debug.write(`getChild ${input_path}\n`);
+
     let executable: MooseExecutable = await this.getMooseExecutable(input_path);
+
+    debug.write(`found executable ${JSON.stringify(executable)}\n`);
 
     // check the child process list first
     if (executable.path in this.children) {
+      debug.write(`found existing child\n`);
       return this.children[executable.path];
     }
 
@@ -251,7 +285,7 @@ class LanguageSeverBroker {
     if (message.method == 'initialize') {
       editor_initialization = data;
       // return canned reply
-      process.stdout.write(this.preparePackage({ ...init_reply, id: message.id }));
+      process.stdout.write(preparePackage({ ...init_reply, id: message.id }));
       this.clientMessage('cached initialization request');
       debug.write("this.clientMessage sent\n");
 
@@ -270,12 +304,13 @@ class LanguageSeverBroker {
 
     // check if the request has a textdocument param
     let uri = message?.params?.textDocument?.uri;
+    debug.write(`uri = ${uri}\n`);
     let file;
     const file_schema = 'file://';
     if (uri) {
-      let schema = uri.substr(0, file_schema.length);
-      if (schema == 'file_schema') {
-        file = uri.substr(file_schema.length);
+      const schema = uri.substring(0, file_schema.length);
+      if (schema == file_schema) {
+        file = uri.substring(file_schema.length);
       } else {
         // unsupported schema (maybe use fallback here)
         return;
@@ -284,9 +319,11 @@ class LanguageSeverBroker {
       // missing URI alltogether (also use fallback?)
       return;
     }
+    const input_path = path.dirname(file);
+    debug.write(`file = ${file}\ninput_path = ${input_path}\n`);
 
     // pass on to child process
-    let child: LSPChildProcess = await this.getChild(file);
+    let child = await this.getChild(input_path);
     let size = data.length
     child.write(`Content-length: ${size}\r\n\r\n${data}\n`);
 
@@ -297,46 +334,36 @@ class LanguageSeverBroker {
   // process message from the Server
   //
   processServerMessage(data) {
-    // pass reply from the MOOSE executable straight back to the client (editor)
+    const message = JSON.parse(data);
 
     // intercept capabilities reply
-    const message = JSON.parse(data);
-    if ('capabilities' in message.result) {
-      return;
+    if ('result' in message) {
+      if ('capabilities' in message.result) {
+        return;
+      }
     }
 
-    process.stdout.write(data);
+    // pass reply from the MOOSE executable back to the client (editor)
+    debug.write("processServerMessage data:\n" + data + '\n');
+    process.stdout.write(preparePackage(data));
   }
 
   //
   // Send a message to the client
   //
   clientMessage(msg: string, type: 1 | 2 | 3 | 4 | 5 = 3) {
-    process.stdout.write(this.preparePackage({
+    let data = preparePackage({
+      jsonrpc: "2.0",
       method: 'window/showMessage',
       params: {
         type: type,
         message: msg
       }
-    }));
-  }
+    });
 
-  //
-  // Formats a piece of data to be sent using JSONRPC
-  //
-  preparePackage(data: string): string;
-  preparePackage(data: object): string;
-  preparePackage(data: unknown): string {
-    let stringified;
-    if (typeof data === 'string') {
-      stringified = data;
-    } else {
-      stringified = JSON.stringify(data);
-    }
-    let size = stringified.length
-    let text = `Content-Length: ${size}\r\n\r\n${stringified}\n`;
-    debug.write("preparePackage: " + text);
-    return text;
+    debug.write("clientMessage:\n" + data + '\n');
+    process.stdout.write(data);
+    // console.log(data);
   }
 }
 
