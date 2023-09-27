@@ -145,7 +145,10 @@ class LSPChildProcess {
 };
 
 // map from MooseExecutablePath to child process
-interface LSPChildProcessList { [key: MooseExecutablePath]: LSPChildProcess }[];
+interface LSPChildProcessList { [key: MooseExecutablePath]: LSPChildProcess }
+
+// map from message id to child process
+interface LSPRequestRoutes { [key: number]: LSPChildProcess }
 
 // canned capabilities reply
 const init_reply = {
@@ -186,6 +189,9 @@ class LanguageSeverBroker {
 
   // provider cache
   provider_cache: MooseExecutableCache = {};
+
+  // request id routing (remember which message ID went to which child process, to route cancellation tokens)
+  request_routing: LSPRequestRoutes = {};
 
   // get a MOOSE executable desriptor for a given input file path
   async getMooseExecutable(input_path: InputFilePath): Promise<MooseExecutable> {
@@ -322,12 +328,18 @@ class LanguageSeverBroker {
     const input_path = path.dirname(file);
     debug.write(`file = ${file}\ninput_path = ${input_path}\n`);
 
-    // pass on to child process
+    // get child process
     let child = await this.getChild(input_path);
-    let size = data.length
-    child.write(`Content-length: ${size}\r\n\r\n${data}\n`);
 
-    debug.write("passed to child process\n" + data + '\n');
+    // store request route
+    if ('id' in message) {
+      this.request_routing[message.id] = child;
+    }
+
+    // send message
+    child.write(preparePackage(data));
+
+    // debug.write("passed to child process\n" + data + '\n');
   }
 
   //
