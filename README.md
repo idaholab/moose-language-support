@@ -71,8 +71,15 @@ This extension contributes the following settings:
 none
 ## Release Notes
 
+### 0.7.1
+Make server more tolerant for restrictive binary permissions
+
+### 0.7.0
+Snippets for finite volume
+
 ### 0.6.2
 Update tree-sitter-hit WASM for VSCode 1.82
+
 ### 0.6.1
 Revert WASP based formatter
 

@@ -4,7 +4,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-import * as fs from 'fs-plus';
+import * as fs from 'fs';
 import * as cp from 'child_process';
 import * as path from 'path';
 import { CompletionItem, CompletionItemKind } from 'vscode-languageserver/node';
@@ -140,7 +140,11 @@ export class Container {
         }
 
         update();
-        fs.watch(filename, { persistent: false }, update);
+
+        try {
+            fs.watch(filename, { persistent: false }, update);
+        } catch (err) {
+        }
 
         return c;
     }
@@ -178,7 +182,11 @@ export class Container {
         }
 
         update();
-        fs.watch(provider.path, { persistent: false }, update);
+
+        try {
+            fs.watch(provider.path, { persistent: false }, update);
+        } catch (err) {
+        }
 
         return c;
     }
@@ -455,8 +463,12 @@ export class Warehouse {
                     var file = path.join(search_path, dir[i]);
 
                     // on non-WSL systems we make sure the matched path is executable
-                    if (match && !isWSL && !fs.isExecutableSync(file)) {
-                        continue;
+                    if (match && !isWSL) {
+                        try {
+                            fs.accessSync(file, fs.constants.X_OK);
+                        } catch (err) {
+                            continue;
+                        }
                     }
 
                     stats = fs.statSync(file);
