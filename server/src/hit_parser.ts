@@ -69,7 +69,7 @@ export class HITParser {
     }
 
     // Get a list of all blocks in the entire input file. Returns the full path of every block at every level.
-    // Used for autocompleting associated syntax (MeshGeneratorName, VariabelName, etc.)
+    // Used for autocompleting associated syntax (MeshGeneratorName, VariableName, etc.)
     getBlockList(): HITBlock[] {
         var blockList: HITBlock[] = [];
         function buildBlockList(node: Parser.SyntaxNode, oldPath: string[]) {

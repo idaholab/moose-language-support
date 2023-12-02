@@ -11,7 +11,7 @@
       "include": "#comments"
     },
     {
-      "match": "(\\[)(Adaptivity|Bounds|Mesh|MeshGenerators|MeshModifiers|Kernels|AuxKernels|ScalarKernels|AuxScalarKernels|Variables|AuxVariables|Materials|FunctorMaterials|Postprocessors|BCs|ICs|Executioner|Executors|Outputs|Problem|Debug|Preconditioning|UserObjects|Functions|GlobalParams|VectorPostprocessors|Dampers|DiracKernels|DGKernels|Constraints|NodalNormals|CoupledProblems|DeprecatedBlock|MultiApps|Transfers|InterfaceKernels|NodalKernels|Controls|Modules|Positions|Times|FluidProperties|SolidProperties|Closures|Components|ControlLogic|FVBCs|FVKernels|FVInterfaceKernels|Distributions|Likelihood|Samplers|Surrogates|VariableMappings|Reporters|OptimizationReporter|Splits|RayBCs|RayKernels)(\\])",
+      "match": "(\\[)(Adaptivity|Bounds|Mesh|MeshDivisions|MeshGenerators|MeshModifiers|Kernels|AuxKernels|ScalarKernels|AuxScalarKernels|Variables|AuxVariables|Materials|FunctorMaterials|Postprocessors|BCs|ICs|Executioner|Executors|Outputs|Problem|Physics|Debug|Preconditioning|UserObjects|Functions|GlobalParams|VectorPostprocessors|Dampers|DiracKernels|DGKernels|Constraints|NodalNormals|CoupledProblems|DeprecatedBlock|MultiApps|Transfers|InterfaceKernels|NodalKernels|Controls|Modules|Positions|Times|FluidProperties|SolidProperties|Closures|Components|ControlLogic|FVBCs|FVKernels|FVInterfaceKernels|Distributions|Likelihood|Samplers|Surrogates|VariableMappings|Reporters|OptimizationReporter|Splits|RayBCs|RayKernels)(\\])",
       "captures": {
         "2": {
           "name": "keyword.control.moose"
