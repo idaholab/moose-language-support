@@ -69,7 +69,7 @@
       }
     },
     {
-      "match": "\\b(cli_args|skip|expect_err|expect_out|group|design|requirement|issues|detail|min_parallel|max_parallel|mesh_mode|allow_warnings|allow_unused|prereq|recover|custom_cmp|rel_err|abs_zero)\\s*(=)\\s*(.*)",
+      "match": "\\b(cli_args|skip|deleted|unique_test_id|expect_err|expect_out|heavy|group|valgrind|tags|max_buffer_size|parallel_scheduling|platform|machine|compiler|petsc_version|petsc_version_release|slepc_version|exodus_version|vtk_version|min_ad_size|max_ad_size|method|library_mode|dtk|unique_ids|tecplot|dof_id_bytes|petsc_debug|curl|threading|superlu|mumps|strumpack|chaco|parmetis|party|ptscotch|slepc|unique_id|cxx11|asio|fparser_jit|libpng|libtorch|libtorch_version|installation_type|depend_files|env_vars|env_vars_not_set|should_execute|required_submodule|required_objects|required_applications|check_input|display_required|timing|boost|python|required_python_packages|requires|working_directory|recover|vtk|design|requirement|issues|detail|validation|verification|deprecated|collections|classification|min_parallel|max_parallel|max_time|mesh_mode|allow_warnings|allow_unused|allow_test_objects|prereq|skip_checks|recover|scale_refine|success_message|custom_cmp|rel_err|abs_zero)\\s*(=)\\s*(.*)",
       "captures": {
         "1": {
           "name": "keyword.control.moose"
