@@ -5,8 +5,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 import * as path from 'path';
-import * as cp from 'child_process';
-import { window, workspace, ExtensionContext, Disposable, QuickPickItem, Uri } from 'vscode';
+import { window, workspace, ExtensionContext, Disposable, QuickPickItem } from 'vscode';
 
 import {
     LanguageClient,
@@ -116,61 +115,69 @@ async function pickFile() {
 
 async function pickServer() {
     // find executables
-    let executable = await pickFile();
+    const executables = await vscode.workspace.findFiles('**/*-opt');
+    // TODO check if they are executable!
 
-    // The debug options for the server
-    // --inspect=6009: runs the server in Node's Inspector mode so VS Code can attach to the server for debugging
-    const debugOptions = { execArgv: ['--nolazy', '--inspect=6009'] };
+    const result = await window.showQuickPick(executables, {
+        placeHolder: 'MOOSE Executable',
+        onDidSelectItem: (item: QuickPickItem) => {
+            console.log(item, typeof (item));
+            // The debug options for the server
+            // --inspect=6009: runs the server in Node's Inspector mode so VS Code can attach to the server for debugging
+            const debugOptions = { execArgv: ['--nolazy', '--inspect=6009'] };
 
-    const serverOptions: ServerOptions = {
-        command: executable.fsPath,
-        args: ['--language-server']
-        // transport: TransportKind.stdio,
-        // options: debugOptions
-    };
+            const serverOptions: ServerOptions = {
+                command: item,
+                args: ['--language-server']
+                // transport: TransportKind.stdio,
+                // options: debugOptions
+            };
 
-    // TODO: watch item and restart server upon changes
+            // TODO: watch item and restart server upon changes
 
-    // Options to control the language client
-    const clientOptions: LanguageClientOptions = {
-        // Register the server for MOOSE input files
-        documentSelector: [{ scheme: 'file', language: 'moose' }]
-    };
+            // Options to control the language client
+            const clientOptions: LanguageClientOptions = {
+                // Register the server for MOOSE input files
+                documentSelector: [{ scheme: 'file', language: 'moose' }]
+            };
 
-    // Create the language client and start the client.
-    client = new LanguageClient(
-        'languageServerMoose',
-        'MOOSE Language Server',
-        serverOptions,
-        clientOptions
-    );
+            // Create the language client and start the client.
+            client = new LanguageClient(
+                'languageServerMoose',
+                'MOOSE Language Server',
+                serverOptions,
+                clientOptions
+            );
 
-    // Start the client. This will also launch the server
-    client.start();
+            // Start the client. This will also launch the server
+            client.start();
 
-    // Once client is ready, we can send messages and add listeners for various notifications
-    client.onReady().then(() => {
-        // handle notifications
-        client.onNotification(serverError, (msg: string) => {
-            window.showErrorMessage(msg);
-        });
-        client.onNotification(serverDebug, (msg: string) => {
-            console.log(msg);
-        });
+            // Once client is ready, we can send messages and add listeners for various notifications
+            client.onReady().then(() => {
+                // handle notifications
+                client.onNotification(serverError, (msg: string) => {
+                    window.showErrorMessage(msg);
+                });
+                client.onNotification(serverDebug, (msg: string) => {
+                    console.log(msg);
+                });
 
-        client.onNotification(serverStartWork, () => {
-            if (statusDisposable) {
-                statusDisposable.dispose();
-            }
-            statusDisposable = window.setStatusBarMessage('Rebuilding MOOSE Syntax...');
-        });
-        client.onNotification(serverStopWork, () => {
-            if (statusDisposable) {
-                statusDisposable.dispose();
-            }
-            statusDisposable = null;
-        });
+                client.onNotification(serverStartWork, () => {
+                    if (statusDisposable) {
+                        statusDisposable.dispose();
+                    }
+                    statusDisposable = window.setStatusBarMessage('Rebuilding MOOSE Syntax...');
+                });
+                client.onNotification(serverStopWork, () => {
+                    if (statusDisposable) {
+                        statusDisposable.dispose();
+                    }
+                    statusDisposable = null;
+                });
+            });
+        }
     });
+
 }
 
 export async function activate(context: ExtensionContext) {
