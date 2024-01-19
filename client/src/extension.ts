@@ -4,10 +4,9 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-import * as fs from 'fs';
 import * as path from 'path';
-import { window, workspace, ExtensionContext, Disposable, TextDocument, TextEdit, Range, languages } from 'vscode';
-import * as hit from '../hit/hit';
+import * as cp from 'child_process';
+import { window, workspace, ExtensionContext, Disposable, QuickPickItem, Uri } from 'vscode';
 
 import {
     LanguageClient,
@@ -18,7 +17,7 @@ import {
     NotificationType0
 } from 'vscode-languageclient/node';
 
-let client: LanguageClient;
+let client: LanguageClient | null = null;
 
 // these must match the declarations in server/src/interfaces.ts
 export const serverError = new NotificationType<string>('serverErrorNotification');
@@ -28,89 +27,114 @@ export const serverStopWork = new NotificationType0('serverStopWork');
 export const clientDataSend = new NotificationType<string>('clientDataSend');
 
 let statusDisposable: Disposable | null;
+class FileItem implements QuickPickItem {
+    label: string;
+    description: string;
 
-export async function activate(context: ExtensionContext) {
-    // register hit formatter
-    languages.registerDocumentFormattingEditProvider([{ scheme: "file", language: 'moose' }, { scheme: "file", language: 'moose-test-spec' }], {
-        provideDocumentFormattingEdits: (document: TextDocument): TextEdit[] => {
-            var style_file: string, style: string;
+    constructor(public base: Uri, public uri: Uri) {
+        this.label = path.basename(uri.fsPath);
+        this.description = path.dirname(path.relative(base.fsPath, uri.fsPath));
+    }
+}
 
-            style_file =
-                workspace.getConfiguration("languageServerMoose").get("formatStyleFile") ||
-                context.asAbsolutePath(path.join('client', 'hit', 'default.style'))
+class MessageItem implements QuickPickItem {
 
-            try {
-                style = fs.readFileSync(style_file, 'utf8');
-            } catch (e) {
-                window.showErrorMessage(`Failed to load style file '${style_file}'.`);
-                return;
-            }
+    label: string;
+    description = '';
+    detail: string;
 
-            try {
-                const newText = hit.process(document.getText(), style);
+    constructor(public base: Uri, public message: string) {
+        this.label = message.replace(/\r?\n/g, ' ');
+        this.detail = base.fsPath;
+    }
+}
 
-                const firstLine = document.lineAt(0);
-                const lastLine = document.lineAt(document.lineCount - 1);
-                const textRange = new Range(firstLine.range.start, lastLine.range.end);
-                return [TextEdit.replace(textRange, newText + '\n')];
-            }
-            catch (e: any) {
-                window.showWarningMessage(`Malformed input.`);
-            }
-            return [];
-        }
-    });
+async function pickFile() {
+    const disposables: Disposable[] = [];
+    try {
+        return await new Promise<Uri | undefined>((resolve, reject) => {
+            const input = window.createQuickPick<FileItem | MessageItem>();
+            input.placeholder = 'Type to search for files';
+            let rgs: cp.ChildProcess[] = [];
+            disposables.push(
+                input.onDidChangeValue(value => {
+                    rgs.forEach(rg => rg.kill());
+                    if (!value) {
+                        input.items = [];
+                        return;
+                    }
+                    input.busy = true;
+                    const cwds = workspace.workspaceFolders ? workspace.workspaceFolders.map(f => f.uri.fsPath) : [process.cwd()];
+                    const q = process.platform === 'win32' ? '"' : '\'';
+                    rgs = cwds.map(cwd => {
+                        const rg = cp.exec(`rg --files -g ${q}*${value}*${q}`, { cwd }, (err, stdout) => {
+                            const i = rgs.indexOf(rg);
+                            if (i !== -1) {
+                                if (rgs.length === cwds.length) {
+                                    input.items = [];
+                                }
+                                if (!err) {
+                                    input.items = input.items.concat(
+                                        stdout
+                                            .split('\n').slice(0, 50)
+                                            .map(relative => new FileItem(Uri.file(cwd), Uri.file(path.join(cwd, relative))))
+                                    );
+                                }
+                                if (err && !(<any>err).killed && (<any>err).code !== 1 && err.message) {
+                                    input.items = input.items.concat([
+                                        new MessageItem(Uri.file(cwd), err.message)
+                                    ]);
+                                }
+                                rgs.splice(i, 1);
+                                if (!rgs.length) {
+                                    input.busy = false;
+                                }
+                            }
+                        });
+                        return rg;
+                    });
+                }),
+                input.onDidChangeSelection(items => {
+                    const item = items[0];
+                    if (item instanceof FileItem) {
+                        resolve(item.uri);
+                        input.hide();
+                    }
+                }),
+                input.onDidHide(() => {
+                    rgs.forEach(rg => rg.kill());
+                    resolve(undefined);
+                    input.dispose();
+                })
+            );
+            input.show();
+        });
+    } finally {
+        disposables.forEach(d => d.dispose());
+    }
+}
 
-    // The server is implemented in node
-    const serverModule = context.asAbsolutePath(
-        path.join('broker', 'out', 'rpc.js')
-        // path.join('server', 'out', 'server_debug.js')
-    );
+async function pickServer() {
+    // find executables
+    let executable = await pickFile();
 
     // The debug options for the server
     // --inspect=6009: runs the server in Node's Inspector mode so VS Code can attach to the server for debugging
     const debugOptions = { execArgv: ['--nolazy', '--inspect=6009'] };
 
-    // If the extension is launched in debug mode then the debug server options are used
-    // Otherwise the run options are used
-    // const serverOptions: ServerOptions = {
-    //     run: { module: serverModule, transport: TransportKind.ipc },
-    //     debug: {
-    //         module: serverModule,
-    //         transport: TransportKind.ipc,
-    //         options: debugOptions
-    //     }
-    // };
-
-    // const serverOptions: ServerOptions = {
-    //     command: '/home/schwd/Programs/moose/test/moose_test-dbg',
-    //     args: ['--language-server'],
-    //     transport: TransportKind.stdio
-    // };
-
-    // const serverOptions: ServerOptions = {
-    //     command: '/home/schwd/Programs/moose/test/moose_test-dbg',
-    //     args: ['--language-server'],
-    //     transport: TransportKind.stdio
-    // };
-
     const serverOptions: ServerOptions = {
-        run: { module: serverModule, transport: TransportKind.stdio /*ipc*/ },
-        debug: {
-            module: serverModule,
-            transport: TransportKind.stdio /*ipc*/,
-            options: debugOptions
-        }
+        command: executable.fsPath,
+        args: ['--language-server']
+        // transport: TransportKind.stdio,
+        // options: debugOptions
     };
+
+    // TODO: watch item and restart server upon changes
 
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {
         // Register the server for MOOSE input files
         documentSelector: [{ scheme: 'file', language: 'moose' }]
-        // synchronize: {
-        //     // Notify the server about file changes to '.clientrc files contained in the workspace
-        //     fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
-        // }
     };
 
     // Create the language client and start the client.
@@ -147,6 +171,10 @@ export async function activate(context: ExtensionContext) {
             statusDisposable = null;
         });
     });
+}
+
+export async function activate(context: ExtensionContext) {
+    pickServer();
 }
 
 export function deactivate(): Thenable<void> | undefined {
