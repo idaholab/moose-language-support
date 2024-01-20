@@ -5,9 +5,10 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 import * as fs from 'fs';
+import * as process from 'process';
 import * as path from 'path';
 import { formatDistance } from 'date-fns';
-import { window, workspace, ExtensionContext, Disposable, QuickPickItem, Uri } from 'vscode';
+import { window, workspace, ExtensionContext, Disposable, QuickPickItem, QuickPickItemKind, Uri } from 'vscode';
 
 import {
     LanguageClient,
@@ -15,7 +16,8 @@ import {
     ServerOptions,
     TransportKind,
     NotificationType,
-    NotificationType0
+    NotificationType0,
+    State
 } from 'vscode-languageclient/node';
 
 let client: LanguageClient | null = null;
@@ -59,10 +61,30 @@ async function pickServer() {
     // sort by modification time
     executables.sort((a, b) => b.mtime - a.mtime);
 
+    // items
+    let items: QuickPickItem[] = executables.map(e => e.item);
+
+    // env var set?
+    const env_var = 'MOOSE_LANGUAGE_SERVER'
+    if (env_var in process.env) {
+        let recommended: QuickPickItem[] = [
+            {
+                label: 'Recommended',
+                kind: QuickPickItemKind.Separator
+            },
+            { label: process.env[env_var], detail: 'Environment Variable' },
+            {
+                label: 'Workspace Executables',
+                kind: QuickPickItemKind.Separator
+            }
+        ];
+        items = recommended.concat(items);
+    }
+
     // build quick pick
-    const result = await window.showQuickPick(executables.map(e => e.item), {
+    const result = await window.showQuickPick(items, {
         placeHolder: 'MOOSE Executable'
-    };
+    });
 
     // no selection
     if (!result) return;
@@ -121,14 +143,27 @@ async function pickServer() {
             }
             statusDisposable = null;
         });
+        client.onDidChangeState(e => {
+            console.log("client.onDidChangeState ", e);
+            if (e.newState == State.Stopped) {
+                client = null;
+            }
+        });
     });
-}
-    });
-
 }
 
 export async function activate(context: ExtensionContext) {
     pickServer();
+
+    // If no server is running yet and we swithc to a new MOOSE input, we offer the choice again  
+    window.onDidChangeActiveTextEditor(editor => {
+        if (editor && !client) {
+            const doc = editor.document;
+            if (doc.languageId == 'moose') {
+                pickServer();
+            }
+        }
+    });
 }
 
 export function deactivate(): Thenable<void> | undefined {
