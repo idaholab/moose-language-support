@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as process from 'process';
 import * as path from 'path';
 import { formatDistance } from 'date-fns';
-import { window, workspace, ExtensionContext, Disposable, QuickPickItem, QuickPickItemKind, Uri } from 'vscode';
+import { window, commands, workspace, ExtensionContext, Disposable, QuickPickItem, QuickPickItemKind, Uri } from 'vscode';
 
 import {
     LanguageClient,
@@ -144,9 +144,10 @@ async function pickServer() {
             statusDisposable = null;
         });
         client.onDidChangeState(e => {
-            console.log("client.onDidChangeState ", e);
+            // this doesn't seem to work
             if (e.newState == State.Stopped) {
                 client = null;
+                window.showErrorMessage("Languageserver got RECKT!");
             }
         });
     });
@@ -157,13 +158,22 @@ export async function activate(context: ExtensionContext) {
 
     // If no server is running yet and we swithc to a new MOOSE input, we offer the choice again  
     window.onDidChangeActiveTextEditor(editor => {
-        if (editor && !client) {
+        if (!editor) return;
+        if (!client) {
             const doc = editor.document;
             if (doc.languageId == 'moose') {
                 pickServer();
             }
         }
     });
+
+    // add command
+	context.subscriptions.push(commands.registerCommand('mooseLanguageSupport.startServer', async () => {
+        if (client) {
+            await client.stop();
+            pickServer();
+        }
+	}));
 }
 
 export function deactivate(): Thenable<void> | undefined {

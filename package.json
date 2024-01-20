@@ -23,7 +23,8 @@
 		"Formatters"
 	],
 	"activationEvents": [
-		"onLanguage:moose"
+		"onLanguage:moose",
+		"onCommand:mooseLanguageSupport.startServer"
 	],
 	"main": "./client/out/extension",
 	"capabilities": {
@@ -33,6 +34,12 @@
 		}
 	},
 	"contributes": {
+		"commands": [
+			{
+				"command": "mooseLanguageSupport.startServer",
+				"title": "(Re)Start MOOSE Language Server"
+			}
+		],
 		"languages": [
 			{
 				"id": "moose",
