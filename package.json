@@ -215,21 +215,6 @@
 					],
 					"default": "off",
 					"description": "Traces the communication between VS Code and the language server."
-				},
-				"languageServerMoose.hideDeprecatedParams": {
-					"type": "boolean",
-					"default": false,
-					"description": "Omit deprecated parameters from autocompletion."
-				},
-				"languageServerMoose.formatStyleFile": {
-					"type": "string",
-					"default": "",
-					"description": "Path to a custom HIT format style file. Leave empty for default style."
-				},
-				"languageServerMoose.detailedOutline": {
-					"type": "boolean",
-					"default": false,
-					"description": "Generate detailed input file outlines with all parameters."
 				}
 			}
 		}

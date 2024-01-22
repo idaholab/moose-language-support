@@ -132,9 +132,7 @@ async function pickServer() {
                 return ErrorAction.Shutdown;
             },
             closed: () => {
-                client = null;
-                setTimeout(showRestartError, 0);
-                return CloseAction.DoNotRestart;
+                return CloseAction.Restart;
             }
         }
     };
@@ -170,12 +168,6 @@ async function pickServer() {
                 statusDisposable.dispose();
             }
             statusDisposable = null;
-        });
-        client.onDidChangeState(e => {
-            if (e.newState == State.Stopped) {
-                client = null;
-                window.setStatusBarMessage("MOOSE Language Server Stopped.");
-            }
         });
     });
 }
