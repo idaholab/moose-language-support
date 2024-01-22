@@ -35,6 +35,14 @@ export const clientDataSend = new NotificationType<string>('clientDataSend');
 
 let statusDisposable: Disposable | null;
 
+async function showRestartError() {
+    const restart = 'Restart server.';
+    const chosen = await window.showErrorMessage("MOOSE language server connection closed.", restart);
+    if (chosen === restart) {
+        pickServer()
+    }
+}
+
 async function pickServer() {
     // find executables
     const files = await workspace.findFiles('**/*-opt');
@@ -113,19 +121,19 @@ async function pickServer() {
         // Register the server for MOOSE input files
         documentSelector: [{ scheme: 'file', language: 'moose' }],
         initializationFailedHandler: (error) => {
-            window.showErrorMessage("Languageserver failed to initialize!" + error);
+            window.showErrorMessage("MOOSE language server failed to initialize.");
             client = null;
             return false;
         },
         errorHandler: {
             error: (error, message, count) => {
-                window.showErrorMessage("Languageserver encountered an error and was stopped.");
+                window.showErrorMessage(`MOOSE language server encountered an error and was stopped. (${message})`);
                 client = null;
                 return ErrorAction.Shutdown;
             },
             closed: () => {
-                window.showErrorMessage("Languageserver connection closed.");
                 client = null;
+                setTimeout(showRestartError, 0);
                 return CloseAction.DoNotRestart;
             }
         }
@@ -156,7 +164,6 @@ async function pickServer() {
             if (statusDisposable) {
                 statusDisposable.dispose();
             }
-            statusDisposable = window.setStatusBarMessage('Rebuilding MOOSE Syntax...');
         });
         client.onNotification(serverStopWork, () => {
             if (statusDisposable) {
@@ -165,10 +172,9 @@ async function pickServer() {
             statusDisposable = null;
         });
         client.onDidChangeState(e => {
-            // this doesn't seem to work
             if (e.newState == State.Stopped) {
                 client = null;
-                window.showErrorMessage("MOOSE Languageserver Stopped");
+                window.setStatusBarMessage("MOOSE Language Server Stopped.");
             }
         });
     });
@@ -191,7 +197,7 @@ export async function activate(context: ExtensionContext) {
     // add command
 	context.subscriptions.push(commands.registerCommand('mooseLanguageSupport.startServer', async () => {
         if (client) {
-            await client.stop();
+            client.stop();
             pickServer();
         }
 	}));
