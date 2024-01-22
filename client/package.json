@@ -10,7 +10,7 @@
 		"url": "https://github.com/idaholab/moose-language-support"
 	},
 	"engines": {
-		"vscode": "^1.63.0"
+		"vscode": ">=1.63.0"
 	},
 	"dependencies": {
 		"vscode-jsonrpc": "^8.0.1",

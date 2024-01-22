@@ -17,8 +17,12 @@ import {
     TransportKind,
     NotificationType,
     NotificationType0,
-    State
+    State,
+    ErrorAction,
+    CloseAction
 } from 'vscode-languageclient/node';
+import { count, error } from 'console';
+import { Message } from 'vscode-jsonrpc';
 
 let client: LanguageClient | null = null;
 
@@ -107,7 +111,24 @@ async function pickServer() {
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {
         // Register the server for MOOSE input files
-        documentSelector: [{ scheme: 'file', language: 'moose' }]
+        documentSelector: [{ scheme: 'file', language: 'moose' }],
+        initializationFailedHandler: (error) => {
+            window.showErrorMessage("Languageserver failed to initialize!" + error);
+            client = null;
+            return false;
+        },
+        errorHandler: {
+            error: (error, message, count) => {
+                window.showErrorMessage("Languageserver encountered an error and was stopped.");
+                client = null;
+                return ErrorAction.Shutdown;
+            },
+            closed: () => {
+                window.showErrorMessage("Languageserver connection closed.");
+                client = null;
+                return CloseAction.DoNotRestart;
+            }
+        }
     };
 
     // Create the language client and start the client.
@@ -147,7 +168,7 @@ async function pickServer() {
             // this doesn't seem to work
             if (e.newState == State.Stopped) {
                 client = null;
-                window.showErrorMessage("Languageserver got RECKT!");
+                window.showErrorMessage("MOOSE Languageserver Stopped");
             }
         });
     });
@@ -156,7 +177,7 @@ async function pickServer() {
 export async function activate(context: ExtensionContext) {
     pickServer();
 
-    // If no server is running yet and we swithc to a new MOOSE input, we offer the choice again  
+    // If no server is running yet and we switch to a new MOOSE input, we offer the choice again
     window.onDidChangeActiveTextEditor(editor => {
         if (!editor) return;
         if (!client) {
