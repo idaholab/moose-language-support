@@ -102,19 +102,32 @@ async function pickServer() {
     if (!result) return;
 
     // otherwise start a server
+    const executable = result.label;
 
     // The debug options for the server
     // --inspect=6009: runs the server in Node's Inspector mode so VS Code can attach to the server for debugging
     const debugOptions = { execArgv: ['--nolazy', '--inspect=6009'] };
 
+    // build server options
+    let ls_args = ['--language-server'];
+    const config_test_objects = workspace.getConfiguration('languageServerMoose.allowTestObjects');
+    if (config_test_objects) {
+        ls_args.push('--allow-test-objects')
+    }
     const serverOptions: ServerOptions = {
-        command: result.label,
-        args: ['--language-server']
-        // transport: TransportKind.stdio,
-        // options: debugOptions
+        command: executable,
+        args: ls_args
     };
 
-    // TODO: watch item and restart server upon changes
+    // watch item and restart server upon changes
+    try {
+        fs.watch(executable, { persistent: false }, () => {
+            client.stop();
+            window.showInformationMessage("MOOSE executable was updated, restarting language server.");
+            client.start();
+        });
+    } catch (err) {
+    }
 
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {
@@ -193,6 +206,12 @@ export async function activate(context: ExtensionContext) {
             pickServer();
         }
 	}));
+
+    // update language specific configuration
+    const config = workspace.getConfiguration("", { languageId: "moose" });
+    config.update("outline.showProperties", false, false, true);
+    config.update("outline.showStrings", false, false, true);
+    config.update("gitlens.codeLens.scopes", ['document'], false, true);
 }
 
 export function deactivate(): Thenable<void> | undefined {
