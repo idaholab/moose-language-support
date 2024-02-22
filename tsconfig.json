@@ -14,9 +14,4 @@
 		"node_modules",
 		".vscode-test"
 	],
-	"references": [
-		{
-			"path": "./client"
-		}
-	]
 }

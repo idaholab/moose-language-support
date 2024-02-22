@@ -26,7 +26,7 @@
 		"onLanguage:moose",
 		"onCommand:mooseLanguageSupport.startServer"
 	],
-	"main": "./client/out/extension",
+	"main": "./out/extension",
 	"capabilities": {
 		"virtualWorkspaces": {
 			"supported": false,
@@ -223,12 +223,12 @@
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -b",
 		"watch": "tsc -b -w",
-		"lint": "eslint ./client/src --ext .ts,.tsx",
-		"postinstall": "cd client && npm install && cd ../server && npm install && cd .."
+		"lint": "eslint ./src --ext .ts,.tsx"
 	},
 	"devDependencies": {
 		"@types/mocha": "^9.1.0",
 		"@types/node": "^16.11.7",
+		"@types/vscode": "^1.63.0",
 		"@typescript-eslint/eslint-plugin": "^5.19.0",
 		"@typescript-eslint/parser": "^5.19.0",
 		"esbuild": "^0.14.44",
@@ -239,6 +239,8 @@
 	},
 	"dependencies": {
 		"@vscode/test-electron": "^2.3.4",
-		"date-fns": "^3.2.0"
+		"date-fns": "^3.2.0",
+		"vscode-jsonrpc": "^8.0.1",
+		"vscode-languageclient": "^7.0.0"
 	}
 }
