@@ -22,10 +22,6 @@
 		"Snippets",
 		"Formatters"
 	],
-	"activationEvents": [
-		"onLanguage:moose",
-		"onCommand:mooseLanguageSupport.startServer"
-	],
 	"main": "./out/extension",
 	"capabilities": {
 		"virtualWorkspaces": {
