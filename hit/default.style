@@ -1,5 +1,0 @@
-[format]
-    indent_string = "  "
-    line_length = 100
-    canonical_section_markers = true
-[]
