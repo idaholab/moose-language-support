@@ -1,8 +1,9 @@
 .vscode/**
+src/**
 test/**
 .gitignore
 out/*.map
 .eslintrc.json
 node_modules/**
-images/**
+images/*.gif
 tsconfig.json

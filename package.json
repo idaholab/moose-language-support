@@ -15,7 +15,7 @@
 		"url": "https://github.com/idaholab/moose-language-support"
 	},
 	"engines": {
-		"vscode": "^1.68.0"
+		"vscode": "^1.75.0"
 	},
 	"categories": [
 		"Language Packs",
