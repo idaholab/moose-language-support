@@ -71,6 +71,15 @@ This extension contributes the following settings:
 none
 ## Release Notes
 
+### 0.8.0
+Internal beta release for the switch over to the built-in MOOSE language server.
+
+### 0.7.1
+Make server more tolerant for restrictive binary permissions
+
+### 0.7.0
+Snippets for finite volume
+
 ### 0.6.2
 Update tree-sitter-hit WASM for VSCode 1.82
 ### 0.6.1
