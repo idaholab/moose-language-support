@@ -71,6 +71,14 @@ This extension contributes the following settings:
 none
 ## Release Notes
 
+### 1.0.1
+Update release notes.
+
+### 1.0.0
+Rewrite of the plugin using the new MOOSE language server capability. Instead of a static JSON dump the plugin
+now launches a MOOSE executable with the `--language-server` option and communicates with it through LSP.
+Make sure your MOOSE repository is up to date! This new approach will allow us to vastly expand autocompletion in the future.
+
 ### 0.8.0
 Internal beta release for the switch over to the built-in MOOSE language server.
 
