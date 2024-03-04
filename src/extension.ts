@@ -121,10 +121,15 @@ async function pickServer() {
 
     // watch item and restart server upon changes
     try {
-        fs.watch(executable, { persistent: false }, () => {
-            client.stop();
-            window.showInformationMessage("MOOSE executable was updated, restarting language server.");
-            client.start();
+        fs.watch(executable, { persistent: false }, (eventType) => {
+            if (eventType == 'change') {
+                client.stop();
+                window.showInformationMessage("MOOSE executable was updated, restarting language server.");
+                client.start();
+            }
+            if (eventType == 'rename') {
+                window.showInformationMessage("MOOSE language server executable was renamed or deleted.");
+            }
         });
     } catch (err) {
     }
