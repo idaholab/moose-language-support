@@ -47,7 +47,7 @@ Syntax highlighting for:
 * Special highlight for the ```type = TypeName``` lines
 * Highlight valid Function Parser functions in parameter strings
 * Highlight valid parameters for shape function family/order and element type
-* Numbers and constrants (true/false)
+* Numbers and constants (true/false)
 
 ## MOOSE
 
@@ -69,7 +69,11 @@ This extension contributes the following settings:
 ## Known Issues
 
 none
+
 ## Release Notes
+
+### 1.0.2
+Bugfix: The `vscode-languageclient` module version was bumped, but contained a breaking change.
 
 ### 1.0.1
 Update release notes.
@@ -77,7 +81,8 @@ Update release notes.
 ### 1.0.0
 Rewrite of the plugin using the new MOOSE language server capability. Instead of a static JSON dump the plugin
 now launches a MOOSE executable with the `--language-server` option and communicates with it through LSP.
-Make sure your MOOSE repository is up to date! This new approach will allow us to vastly expand autocompletion in the future.
+This new approach will allow us to vastly expand autocompletion in the future.
+Make sure your MOOSE repository is up to date!
 
 ### 0.8.0
 Internal beta release for the switch over to the built-in MOOSE language server.

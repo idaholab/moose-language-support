@@ -163,31 +163,28 @@ async function pickServer() {
         clientOptions
     );
 
-    // Start the client. This will also launch the server
-    client.start();
-
-    // Once client is ready, we can send messages and add listeners for various notifications
-    client.onReady().then(() => {
-        // handle notifications
-        client.onNotification(serverError, (msg: string) => {
-            window.showErrorMessage(msg);
-        });
-        client.onNotification(serverDebug, (msg: string) => {
-            console.log(msg);
-        });
-
-        client.onNotification(serverStartWork, () => {
-            if (statusDisposable) {
-                statusDisposable.dispose();
-            }
-        });
-        client.onNotification(serverStopWork, () => {
-            if (statusDisposable) {
-                statusDisposable.dispose();
-            }
-            statusDisposable = null;
-        });
+    // handle notifications
+    client.onNotification(serverError, (msg: string) => {
+        window.showErrorMessage(msg);
     });
+    client.onNotification(serverDebug, (msg: string) => {
+        console.log(msg);
+    });
+
+    client.onNotification(serverStartWork, () => {
+        if (statusDisposable) {
+            statusDisposable.dispose();
+        }
+    });
+    client.onNotification(serverStopWork, () => {
+        if (statusDisposable) {
+            statusDisposable.dispose();
+        }
+        statusDisposable = null;
+    });
+
+    // Start the client. This will also launch the server
+    await client.start();
 }
 
 export async function activate(context: ExtensionContext) {
