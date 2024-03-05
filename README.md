@@ -72,6 +72,9 @@ none
 
 ## Release Notes
 
+### 1.0.3
+Bugfix: The behavior of the custom error handler changed. Removing it for now.
+
 ### 1.0.2
 Bugfix: The `vscode-languageclient` module version was bumped, but contained a breaking change.
 

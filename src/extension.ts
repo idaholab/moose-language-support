@@ -142,16 +142,6 @@ async function pickServer() {
             window.showErrorMessage("MOOSE language server failed to initialize.");
             client = null;
             return false;
-        },
-        errorHandler: {
-            error: (error, message, count) => {
-                window.showErrorMessage(`MOOSE language server encountered an error and was stopped. (${message})`);
-                client = null;
-                return ErrorAction.Shutdown;
-            },
-            closed: () => {
-                return CloseAction.Restart;
-            }
         }
     };
 
