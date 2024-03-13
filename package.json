@@ -195,6 +195,11 @@
 					"default": true,
 					"description": "Show test objects in the suggestion list."
 				},
+				"languageServerMoose.autodetectExecutable": {
+					"type": "boolean",
+					"default": true,
+					"description": "Automatically find the best suited MOOSE executable."
+				},
 				"languageServerMoose.maxNumberOfProblems": {
 					"scope": "resource",
 					"type": "number",
@@ -238,6 +243,7 @@
 		"@vscode/test-electron": "^2.3.4",
 		"date-fns": "^3.3.1",
 		"vscode-jsonrpc": "^8.2.0",
-		"vscode-languageclient": "^9.0.1"
+		"vscode-languageclient": "^9.0.1",
+		"vscode-uri": "^3.0.8"
 	}
 }
