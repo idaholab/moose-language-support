@@ -72,6 +72,9 @@ none
 
 ## Release Notes
 
+### 1.1.0
+Added syntax highlighting items for test specs.
+
 ### 1.0.3
 Bugfix: The behavior of the custom error handler changed. Removing it for now.
 
