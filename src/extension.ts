@@ -44,65 +44,74 @@ async function showRestartError() {
 }
 
 async function pickServer() {
-    // find executables
-    const files = await workspace.findFiles('**/*-opt');
-
-    // analyze candidates
-    let executables = files.map(f => {
-        let p = f.fsPath;
-
-        // check if p is executable
-        try {
-            fs.accessSync(p, fs.constants.X_OK);
-        } catch (err) {
-            return undefined;
-        }
-
-        // get mtime
-        let stats = fs.statSync(p);
-        let mtime = stats.mtime;
-        return {
-            mtime: mtime.getTime(),
-            item: {
-                label: f.fsPath,
-                detail: 'Last updated ' + formatDistance(mtime, new Date(), { addSuffix: true })
-            }
-        };
-    }).filter(i => i !== undefined);
-
-    // sort by modification time
-    executables.sort((a, b) => b.mtime - a.mtime);
-
-    // items
-    let items: QuickPickItem[] = executables.map(e => e.item);
+    var executable;
 
     // env var set?
     const env_var = 'MOOSE_LANGUAGE_SERVER'
     if (env_var in process.env) {
-        let recommended: QuickPickItem[] = [
-            {
-                label: 'Recommended',
-                kind: QuickPickItemKind.Separator
-            },
-            { label: process.env[env_var], detail: 'Environment Variable' },
-            {
-                label: 'Workspace Executables',
-                kind: QuickPickItemKind.Separator
-            }
-        ];
-        items = recommended.concat(items);
+        executable = process.env[env_var];
     }
+    else {
+        // find executables
+        const files = await workspace.findFiles('**/*-opt');
 
-    // build quick pick
-    const result = await window.showQuickPick(items, {
-        placeHolder: 'MOOSE Executable'
-    });
+        // analyze candidates
+        let executables = files.map(f => {
+            let p = f.fsPath;
 
-    // no selection
-    if (!result) return;
+            // check if p is executable
+            try {
+                fs.accessSync(p, fs.constants.X_OK);
+            } catch (err) {
+                return undefined;
+            }
 
-    // otherwise start a server
-    const executable = result.label;
+            // get mtime
+            let stats = fs.statSync(p);
+            let mtime = stats.mtime;
+            return {
+                mtime: mtime.getTime(),
+                item: {
+                    label: f.fsPath,
+                    detail: 'Last updated ' + formatDistance(mtime, new Date(), { addSuffix: true })
+                }
+            };
+        }).filter(i => i !== undefined);
+
+        // sort by modification time
+        executables.sort((a, b) => b.mtime - a.mtime);
+
+        // items
+        let items: QuickPickItem[] = executables.map(e => e.item);
+
+        // env var set?
+        // const env_var = 'MOOSE_LANGUAGE_SERVER'
+        // if (env_var in process.env) {
+        //     let recommended: QuickPickItem[] = [
+        //         {
+        //             label: 'Recommended',
+        //             kind: QuickPickItemKind.Separator
+        //         },
+        //         { label: process.env[env_var], detail: 'Environment Variable' },
+        //         {
+        //             label: 'Workspace Executables',
+        //             kind: QuickPickItemKind.Separator
+        //         }
+        //     ];
+        //     items = recommended.concat(items);
+        // }
+
+        // build quick pick
+        const result = await window.showQuickPick(items, {
+            placeHolder: 'MOOSE Executable'
+        });
+
+        // no selection
+        if (!result) return;
+
+        // otherwise start a server
+        executable = result.label;
+    }
 
     // The debug options for the server
     // --inspect=6009: runs the server in Node's Inspector mode so VS Code can attach to the server for debugging
