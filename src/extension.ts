@@ -35,6 +35,9 @@ export const clientDataSend = new NotificationType<string>('clientDataSend');
 
 let statusDisposable: Disposable | null;
 
+// undefined means the user rejected autocomplete, null means the selector will be shown
+let lastExecutablePick: QuickPickItem | null | undefined = undefined;
+
 async function showRestartError() {
     const restart = 'Restart server.';
     const chosen = await window.showErrorMessage("MOOSE language server connection closed.", restart);
@@ -44,10 +47,23 @@ async function showRestartError() {
 }
 
 async function pickServer() {
-    var executable;
-
     // env var set?
     const env_var = 'MOOSE_LANGUAGE_SERVER'
+    var executable;
+
+    // user opted out of autocomplete for now
+    if (lastExecutablePick === undefined) {
+        let enable = "Enable";
+        window.showInformationMessage("MOOSE Language Server disabled.", enable)
+            .then(selection => {
+                if (selection == enable) {
+                    lastExecutablePick = null;
+                    pickServer();
+                }
+            })
+        return;
+    }
+
     if (env_var in process.env) {
         executable = process.env[env_var];
     }
