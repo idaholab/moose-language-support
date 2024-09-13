@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as process from 'process';
 import * as path from 'path';
 import { formatDistance } from 'date-fns';
-import { window, commands, workspace, ExtensionContext, Disposable, QuickPickItem, QuickPickItemKind, Uri } from 'vscode';
+import { window, commands, workspace, ExtensionContext, Disposable, QuickPickItem, QuickPickItemKind, Uri, TextDocument, FileType } from 'vscode';
 
 import {
     LanguageClient,
@@ -25,6 +25,7 @@ import { count, error } from 'console';
 import { Message } from 'vscode-jsonrpc';
 
 let client: LanguageClient | null = null;
+let currentDocument: TextDocument | null = null;
 
 // these must match the declarations in server/src/interfaces.ts
 export const serverError = new NotificationType<string>('serverErrorNotification');
@@ -36,7 +37,7 @@ export const clientDataSend = new NotificationType<string>('clientDataSend');
 let statusDisposable: Disposable | null;
 
 // undefined means the user rejected autocomplete, null means the selector will be shown
-let lastExecutablePick: QuickPickItem | null | undefined = undefined;
+let lastExecutablePick: string | null | undefined = null;
 
 async function showRestartError() {
     const restart = 'Restart server.';
@@ -46,10 +47,21 @@ async function showRestartError() {
     }
 }
 
+function tryStart() {
+    client.start()
+        .then(() => { /* maybe show a running indicator */ })
+        .catch(() => {
+            window.showErrorMessage("Failed to start MOOSE executable. You might need to rebuild it.");
+            client = null;
+            lastExecutablePick = null;
+        });
+}
+
 async function pickServer() {
-    // env var set?
-    const env_var = 'MOOSE_LANGUAGE_SERVER'
-    var executable;
+    // console.log(currentDocument, lastExecutablePick);
+    if (!currentDocument) {
+        return;
+    }
 
     // user opted out of autocomplete for now
     if (lastExecutablePick === undefined) {
@@ -64,35 +76,45 @@ async function pickServer() {
         return;
     }
 
-    if (env_var in process.env) {
-        executable = process.env[env_var];
-    }
-    else {
-        // find executables
-        const files = await workspace.findFiles('**/*-opt');
+    // prompt user to pick an executable
+    if (lastExecutablePick === null) {
+        // find executables (up the path)
+        let executables = [];
+        let uri = currentDocument.uri;
 
-        // analyze candidates
-        let executables = files.map(f => {
-            let p = f.fsPath;
+        const pattern = /(-opt|-dev|-oprof|-devel)$/;
+        while (true) {
+            // parent dir
+            let newuri = Uri.joinPath(uri, "..");
+            if (newuri == uri) break;
+            uri = newuri;
 
-            // check if p is executable
-            try {
-                fs.accessSync(p, fs.constants.X_OK);
-            } catch (err) {
-                return undefined;
-            }
+            // list directory
+            for (const [name, type] of await workspace.fs.readDirectory(uri)) {
+                if (type !== FileType.Directory && pattern.exec(name)) {
+                    let fileuri = Uri.joinPath(uri, name);
 
-            // get mtime
-            let stats = fs.statSync(p);
-            let mtime = stats.mtime;
-            return {
-                mtime: mtime.getTime(),
-                item: {
-                    label: f.fsPath,
-                    detail: 'Last updated ' + formatDistance(mtime, new Date(), { addSuffix: true })
+                    let p = fileuri.fsPath;
+                    try {
+                        // check if p is executable
+                        fs.accessSync(p, fs.constants.X_OK);
+
+                        // get modification time
+                        let stat = fs.statSync(p);
+                        executables.push(
+                            {
+                                mtime: stat.mtime,
+                                item: {
+                                    label: p,
+                                    detail: 'Last updated ' + formatDistance(stat.mtime, new Date(), { addSuffix: true })
+                                }
+                            });
+                    } catch (err) {
+                        continue;
+                    }
                 }
-            };
-        }).filter(i => i !== undefined);
+            }
+        }
 
         // sort by modification time
         executables.sort((a, b) => b.mtime - a.mtime);
@@ -101,21 +123,22 @@ async function pickServer() {
         let items: QuickPickItem[] = executables.map(e => e.item);
 
         // env var set?
-        // const env_var = 'MOOSE_LANGUAGE_SERVER'
-        // if (env_var in process.env) {
-        //     let recommended: QuickPickItem[] = [
-        //         {
-        //             label: 'Recommended',
-        //             kind: QuickPickItemKind.Separator
-        //         },
-        //         { label: process.env[env_var], detail: 'Environment Variable' },
-        //         {
-        //             label: 'Workspace Executables',
-        //             kind: QuickPickItemKind.Separator
-        //         }
-        //     ];
-        //     items = recommended.concat(items);
-        // }
+        const env_var = 'MOOSE_LANGUAGE_SERVER'
+        if (env_var in process.env) {
+            let recommended: QuickPickItem[] = [
+                {
+                    label: 'Recommended',
+                    kind: QuickPickItemKind.Separator
+                },
+                { label: process.env[env_var], detail: 'Environment Variable' },
+                {
+                    label: 'Executables in parent directories',
+                    kind: QuickPickItemKind.Separator
+                }
+            ];
+            items = recommended.concat(items);
+        }
+
 
         // build quick pick
         const result = await window.showQuickPick(items, {
@@ -123,11 +146,16 @@ async function pickServer() {
         });
 
         // no selection
-        if (!result) return;
+        if (!result) {
+            lastExecutablePick = undefined;
+            return;
+        }
 
         // otherwise start a server
-        executable = result.label;
+        lastExecutablePick = result.label;
     }
+
+    let executable = lastExecutablePick;
 
     // The debug options for the server
     // --inspect=6009: runs the server in Node's Inspector mode so VS Code can attach to the server for debugging
@@ -146,11 +174,18 @@ async function pickServer() {
 
     // watch item and restart server upon changes
     try {
-        fs.watch(executable, { persistent: false }, (eventType) => {
-            if (eventType == 'change') {
-                client.stop();
+        let lastMtime = fs.statSync(executable).mtime;
+
+        fs.watch(executable, { persistent: false }, (eventType, name) => {
+            if (eventType == 'change' && client !== null) {
+                // change gets fired for all kinds of things. here we check the modification time of the file.
+                let mtime = fs.statSync(executable).mtime;
+                if (mtime <= lastMtime)
+                    return;
+                lastMtime = mtime;
+
                 window.showInformationMessage("MOOSE executable was updated, restarting language server.");
-                client.start();
+                client.stop().then(() => { tryStart(); });
             }
             if (eventType == 'rename') {
                 window.showInformationMessage("MOOSE language server executable was renamed or deleted.");
@@ -162,12 +197,7 @@ async function pickServer() {
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {
         // Register the server for MOOSE input files
-        documentSelector: [{ scheme: 'file', language: 'moose' }],
-        initializationFailedHandler: (error) => {
-            window.showErrorMessage("MOOSE language server failed to initialize.");
-            client = null;
-            return false;
-        }
+        documentSelector: [{ scheme: 'file', language: 'moose' }]
     };
 
     // Create the language client and start the client.
@@ -199,30 +229,34 @@ async function pickServer() {
     });
 
     // Start the client. This will also launch the server
-    await client.start();
+    tryStart();
 }
 
 export async function activate(context: ExtensionContext) {
+    let editor = window.activeTextEditor;
+    if (editor)
+        currentDocument = editor.document;
     pickServer();
 
     // If no server is running yet and we switch to a new MOOSE input, we offer the choice again
     window.onDidChangeActiveTextEditor(editor => {
-        if (!editor) return;
+        if (!editor || currentDocument === editor.document) return;
+        if (currentDocument.languageId === 'moose') {
+            currentDocument = editor.document;
+        }
         if (!client) {
-            const doc = editor.document;
-            if (doc.languageId == 'moose') {
-                pickServer();
-            }
+            pickServer();
         }
     });
 
     // add command
-	context.subscriptions.push(commands.registerCommand('mooseLanguageSupport.startServer', async () => {
-        if (client) {
-            client.stop();
+    context.subscriptions.push(commands.registerCommand('mooseLanguageSupport.startServer', async () => {
+        lastExecutablePick = null;
+        if (client)
+            client.stop().then(() => { client = null; pickServer(); });
+        else
             pickServer();
-        }
-	}));
+    }));
 
     // update language specific configuration
     const config = workspace.getConfiguration("", { languageId: "moose" });

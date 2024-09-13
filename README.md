@@ -72,6 +72,13 @@ none
 
 ## Release Notes
 
+### 1.3.0
+Revert back to older logic, which searches only parent directories, but includes `*-opt`, `*-oprof`, `*-dbg`, and `*-devel` executables.
+This should be much faster. Better error handling and more robust server restarts upon executable updates.
+
+### 1.2.0
+Do not browse for executables when the `MOOSE_LANGUAGE_SERVER` environment variable is set.
+
 ### 1.1.0
 Added syntax highlighting items for test specs.
 
