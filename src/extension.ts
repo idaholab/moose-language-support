@@ -241,7 +241,7 @@ export async function activate(context: ExtensionContext) {
     // If no server is running yet and we switch to a new MOOSE input, we offer the choice again
     window.onDidChangeActiveTextEditor(editor => {
         if (!editor || currentDocument === editor.document) return;
-        if (currentDocument.languageId === 'moose') {
+        if (editor.document.languageId === 'moose') {
             currentDocument = editor.document;
         }
         if (!client) {
