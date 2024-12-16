@@ -72,6 +72,12 @@ none
 
 ## Release Notes
 
+### 1.3.2
+Bugfix: the "Allow Test Objects" option was not respected and instead assumed to be always true. Fixed and defaulted to false.
+
+### 1.3.1
+Bugfix: Do not prompt for MOSOE language server when switching to terminal tabs etc.
+
 ### 1.3.0
 Revert back to older logic, which searches only parent directories, but includes `*-opt`, `*-oprof`, `*-dbg`, and `*-devel` executables.
 This should be much faster. Better error handling and more robust server restarts upon executable updates.

@@ -163,7 +163,7 @@ async function pickServer() {
 
     // build server options
     let ls_args = ['--language-server'];
-    const config_test_objects = workspace.getConfiguration('languageServerMoose.allowTestObjects');
+    const config_test_objects = workspace.getConfiguration('languageServerMoose').get<bool>("allowTestObjects");
     if (config_test_objects) {
         ls_args.push('--allow-test-objects')
     }
