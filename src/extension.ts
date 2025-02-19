@@ -26,6 +26,7 @@ import { Message } from 'vscode-jsonrpc';
 
 let client: LanguageClient | null = null;
 let currentDocument: TextDocument | null = null;
+let my_context: vscode.ExtensionContext;
 
 // these must match the declarations in server/src/interfaces.ts
 export const serverError = new NotificationType<string>('serverErrorNotification');
@@ -33,6 +34,9 @@ export const serverDebug = new NotificationType<string>('serverDebugNotification
 export const serverStartWork = new NotificationType0('serverStartWork');
 export const serverStopWork = new NotificationType0('serverStopWork');
 export const clientDataSend = new NotificationType<string>('clientDataSend');
+
+const RECENT_CHOICES_KEY = 'recentChoicesMooseLanguage';
+const MAX_RECENT_CHOICES = 5;
 
 let statusDisposable: Disposable | null;
 
@@ -55,6 +59,19 @@ function tryStart() {
             client = null;
             lastExecutablePick = null;
         });
+}
+
+function getRecentChoices(): string[] {
+    return my_context.globalState.get<string[]>(RECENT_CHOICES_KEY) || [];
+}
+
+function updateRecentChoices(choice: string) {
+    let recentChoices = getRecentChoices();
+    recentChoices = [choice, ...recentChoices.filter(c => c !== choice)];
+    if (recentChoices.length > MAX_RECENT_CHOICES) {
+        recentChoices = recentChoices.slice(0, MAX_RECENT_CHOICES);
+    }
+    my_context.globalState.update(RECENT_CHOICES_KEY, recentChoices);
 }
 
 async function pickServer() {
@@ -139,6 +156,22 @@ async function pickServer() {
             items = recommended.concat(items);
         }
 
+        // add file selector
+        items = items.concat([{
+            label: 'Other options...',
+            kind: QuickPickItemKind.Separator
+        },
+        { label: "Open File...", detail: 'Manually select an executable' }]);
+
+        // add recent choices
+        const recent = getRecentChoices();
+        if (recent.length > 0) {
+            items.push({
+                label: 'Recently used executables',
+                kind: QuickPickItemKind.Separator
+            });
+            items = items.concat(recent.map(name => ({label: name})));
+        }
 
         // build quick pick
         const result = await window.showQuickPick(items, {
@@ -152,10 +185,26 @@ async function pickServer() {
         }
 
         // otherwise start a server
-        lastExecutablePick = result.label;
+        if (result.label == 'Open File...') {
+            const fileUri = await window.showOpenDialog({
+                canSelectFiles: true,
+                canSelectMany: false,
+                filters: {}
+            });
+
+            if (fileUri && fileUri[0]) {
+                lastExecutablePick = fileUri[0].fsPath;
+            } else {
+                lastExecutablePick = undefined;
+                return;
+            }
+        } else {
+            lastExecutablePick = result.label;
+        }
     }
 
     let executable = lastExecutablePick;
+    updateRecentChoices(executable);
 
     // The debug options for the server
     // --inspect=6009: runs the server in Node's Inspector mode so VS Code can attach to the server for debugging
@@ -236,6 +285,7 @@ export async function activate(context: ExtensionContext) {
     let editor = window.activeTextEditor;
     if (editor)
         currentDocument = editor.document;
+    my_context = context;
     pickServer();
 
     // If no server is running yet and we switch to a new MOOSE input, we offer the choice again

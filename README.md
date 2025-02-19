@@ -72,11 +72,14 @@ none
 
 ## Release Notes
 
+### 1.4.0
+Add an option to manually pick an executable and keep a list of recently used executables.
+
 ### 1.3.2
 Bugfix: the "Allow Test Objects" option was not respected and instead assumed to be always true. Fixed and defaulted to false.
 
 ### 1.3.1
-Bugfix: Do not prompt for MOSOE language server when switching to terminal tabs etc.
+Bugfix: Do not prompt for MOOSE language server when switching to terminal tabs etc.
 
 ### 1.3.0
 Revert back to older logic, which searches only parent directories, but includes `*-opt`, `*-oprof`, `*-dbg`, and `*-devel` executables.
