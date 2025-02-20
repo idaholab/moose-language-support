@@ -72,6 +72,9 @@ none
 
 ## Release Notes
 
+### 1.4.2
+Do not prompt the user at all if the `MOOSE_LANGUAGE_SERVER` environment variable is set.
+
 ### 1.4.1
 Enable the MOOSE language support in 'untitled' editors. Those are editors that have no saved file on disk (for example if you create a new editor pane from the command line using `code newfile.i`).
 

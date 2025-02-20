@@ -79,138 +79,129 @@ async function pickServer() {
         return;
     }
 
-    // user opted out of autocomplete for now
-    if (lastExecutablePick === undefined) {
-        let enable = "Enable";
-        window.showInformationMessage("MOOSE Language Server disabled.", enable)
-            .then(selection => {
-                if (selection == enable) {
-                    lastExecutablePick = null;
-                    pickServer();
-                }
-            })
-        return;
+    // env var set?
+    const env_var = 'MOOSE_LANGUAGE_SERVER'
+    if (env_var in process.env) {
+        lastExecutablePick = process.env[env_var];
     }
-
-    // prompt user to pick an executable
-    if (lastExecutablePick === null) {
-        // find executables (up the path)
-        let executables = [];
-        let uri = currentDocument.uri;
-
-        // we might have an "untitled" editor (an non existing file that was opend using the command line)
-        // let's just drop the `untitled:` scheme and hope for the best. In the worst case the user can still
-        // manually select an executable (or use one from the list of recent ones).
-        if (uri.scheme == 'untitled') {
-            uri = uri.with({ scheme: 'file' });
-        }
-
-        const pattern = /(-opt|-dev|-oprof|-devel)$/;
-        while (true) {
-            // parent dir
-            let newuri = Uri.joinPath(uri, "..");
-            if (newuri == uri) break;
-            uri = newuri;
-
-            // list directory
-            for (const [name, type] of await workspace.fs.readDirectory(uri)) {
-                if (type !== FileType.Directory && pattern.exec(name)) {
-                    let fileuri = Uri.joinPath(uri, name);
-
-                    let p = fileuri.fsPath;
-                    try {
-                        // check if p is executable
-                        fs.accessSync(p, fs.constants.X_OK);
-
-                        // get modification time
-                        let stat = fs.statSync(p);
-                        executables.push(
-                            {
-                                mtime: stat.mtime,
-                                item: {
-                                    label: p,
-                                    detail: 'Last updated ' + formatDistance(stat.mtime, new Date(), { addSuffix: true })
-                                }
-                            });
-                    } catch (err) {
-                        continue;
+    else {
+        // user opted out of autocomplete for now
+        if (lastExecutablePick === undefined) {
+            let enable = "Enable";
+            window.showInformationMessage("MOOSE Language Server disabled.", enable)
+                .then(selection => {
+                    if (selection == enable) {
+                        lastExecutablePick = null;
+                        pickServer();
                     }
-                }
-            }
-        }
-
-        // sort by modification time
-        executables.sort((a, b) => b.mtime - a.mtime);
-
-        // items
-        let items: QuickPickItem[] = executables.map(e => e.item);
-
-        // env var set?
-        const env_var = 'MOOSE_LANGUAGE_SERVER'
-        if (env_var in process.env) {
-            let recommended: QuickPickItem[] = [
-                {
-                    label: 'Recommended',
-                    kind: QuickPickItemKind.Separator
-                },
-                { label: process.env[env_var], detail: 'Environment Variable' },
-                {
-                    label: 'Executables in parent directories',
-                    kind: QuickPickItemKind.Separator
-                }
-            ];
-            items = recommended.concat(items);
-        }
-
-        // add file selector
-        items = items.concat([{
-            label: 'Other options...',
-            kind: QuickPickItemKind.Separator
-        },
-        { label: "Open File...", detail: 'Manually select an executable' }]);
-
-        // add recent choices
-        const recent = getRecentChoices();
-        if (recent.length > 0) {
-            items.push({
-                label: 'Recently used executables',
-                kind: QuickPickItemKind.Separator
-            });
-            items = items.concat(recent.map(name => ({ label: name })));
-        }
-
-        // build quick pick
-        const result = await window.showQuickPick(items, {
-            placeHolder: 'MOOSE Executable'
-        });
-
-        // no selection
-        if (!result) {
-            lastExecutablePick = undefined;
+                })
             return;
         }
 
-        // otherwise start a server
-        if (result.label == 'Open File...') {
-            const fileUri = await window.showOpenDialog({
-                canSelectFiles: true,
-                canSelectMany: false,
-                filters: {}
+        // prompt user to pick an executable
+        if (lastExecutablePick === null) {
+            // find executables (up the path)
+            let executables = [];
+            let uri = currentDocument.uri;
+
+            // we might have an "untitled" editor (an non existing file that was opend using the command line)
+            // let's just drop the `untitled:` scheme and hope for the best. In the worst case the user can still
+            // manually select an executable (or use one from the list of recent ones).
+            if (uri.scheme == 'untitled') {
+                uri = uri.with({ scheme: 'file' });
+            }
+
+            const pattern = /(-opt|-dev|-oprof|-devel)$/;
+            while (true) {
+                // parent dir
+                let newuri = Uri.joinPath(uri, "..");
+                if (newuri == uri) break;
+                uri = newuri;
+
+                // list directory
+                for (const [name, type] of await workspace.fs.readDirectory(uri)) {
+                    if (type !== FileType.Directory && pattern.exec(name)) {
+                        let fileuri = Uri.joinPath(uri, name);
+
+                        let p = fileuri.fsPath;
+                        try {
+                            // check if p is executable
+                            fs.accessSync(p, fs.constants.X_OK);
+
+                            // get modification time
+                            let stat = fs.statSync(p);
+                            executables.push(
+                                {
+                                    mtime: stat.mtime,
+                                    item: {
+                                        label: p,
+                                        detail: 'Last updated ' + formatDistance(stat.mtime, new Date(), { addSuffix: true })
+                                    }
+                                });
+                        } catch (err) {
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            // sort by modification time
+            executables.sort((a, b) => b.mtime - a.mtime);
+
+            // items
+            let items: QuickPickItem[] = executables.map(e => e.item);
+
+            // add file selector
+            items = items.concat([{
+                label: 'Other options...',
+                kind: QuickPickItemKind.Separator
+            },
+            { label: "Open File...", detail: 'Manually select an executable' }]);
+
+            // add recent choices
+            const recent = getRecentChoices();
+            if (recent.length > 0) {
+                items.push({
+                    label: 'Recently used executables',
+                    kind: QuickPickItemKind.Separator
+                });
+                items = items.concat(recent.map(name => ({ label: name })));
+            }
+
+            // build quick pick
+            const result = await window.showQuickPick(items, {
+                placeHolder: 'MOOSE Executable'
             });
 
-            if (fileUri && fileUri[0]) {
-                lastExecutablePick = fileUri[0].fsPath;
-            } else {
+            // no selection
+            if (!result) {
                 lastExecutablePick = undefined;
                 return;
             }
-        } else {
-            lastExecutablePick = result.label;
+
+            // otherwise start a server
+            if (result.label == 'Open File...') {
+                const fileUri = await window.showOpenDialog({
+                    canSelectFiles: true,
+                    canSelectMany: false,
+                    filters: {}
+                });
+
+                if (fileUri && fileUri[0]) {
+                    lastExecutablePick = fileUri[0].fsPath;
+                } else {
+                    lastExecutablePick = undefined;
+                    return;
+                }
+            } else {
+                lastExecutablePick = result.label;
+            }
         }
+
+        updateRecentChoices(lastExecutablePick);
     }
 
     let executable = lastExecutablePick;
-    updateRecentChoices(executable);
 
     // The debug options for the server
     // --inspect=6009: runs the server in Node's Inspector mode so VS Code can attach to the server for debugging
