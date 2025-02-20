@@ -72,6 +72,9 @@ none
 
 ## Release Notes
 
+### 1.4.1
+Enable the MOOSE language support in 'untitled' editors. Those are editors that have no saved file on disk (for example if you create a new editor pane from the command line using `code newfile.i`).
+
 ### 1.4.0
 Add an option to manually pick an executable and keep a list of recently used executables.
 

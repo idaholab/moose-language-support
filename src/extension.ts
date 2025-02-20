@@ -75,7 +75,6 @@ function updateRecentChoices(choice: string) {
 }
 
 async function pickServer() {
-    // console.log(currentDocument, lastExecutablePick);
     if (!currentDocument) {
         return;
     }
@@ -98,6 +97,13 @@ async function pickServer() {
         // find executables (up the path)
         let executables = [];
         let uri = currentDocument.uri;
+
+        // we might have an "untitled" editor (an non existing file that was opend using the command line)
+        // let's just drop the `untitled:` scheme and hope for the best. In the worst case the user can still
+        // manually select an executable (or use one from the list of recent ones).
+        if (uri.scheme == 'untitled') {
+            uri = uri.with({ scheme: 'file' });
+        }
 
         const pattern = /(-opt|-dev|-oprof|-devel)$/;
         while (true) {
@@ -170,7 +176,7 @@ async function pickServer() {
                 label: 'Recently used executables',
                 kind: QuickPickItemKind.Separator
             });
-            items = items.concat(recent.map(name => ({label: name})));
+            items = items.concat(recent.map(name => ({ label: name })));
         }
 
         // build quick pick
@@ -246,7 +252,7 @@ async function pickServer() {
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {
         // Register the server for MOOSE input files
-        documentSelector: [{ scheme: 'file', language: 'moose' }]
+        documentSelector: [{ scheme: 'file', language: 'moose' }, { scheme: 'untitled', language: 'moose' }]
     };
 
     // Create the language client and start the client.
@@ -290,12 +296,21 @@ export async function activate(context: ExtensionContext) {
 
     // If no server is running yet and we switch to a new MOOSE input, we offer the choice again
     window.onDidChangeActiveTextEditor(editor => {
-        if (!editor || currentDocument === editor.document) return;
+        if (!editor) {
+            editor = window.activeTextEditor;
+            if (!editor) {
+                return;
+            }
+        }
+        if (currentDocument === editor.document) {
+            return;
+        }
+
         if (editor.document.languageId === 'moose') {
             currentDocument = editor.document;
-        }
-        if (!client) {
-            pickServer();
+            if (!client) {
+                pickServer();
+            }
         }
     });
 
