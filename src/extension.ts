@@ -26,7 +26,7 @@ import { Message } from 'vscode-jsonrpc';
 
 let client: LanguageClient | null = null;
 let currentDocument: TextDocument | null = null;
-let my_context: vscode.ExtensionContext;
+let my_context: ExtensionContext;
 
 // these must match the declarations in server/src/interfaces.ts
 export const serverError = new NotificationType<string>('serverErrorNotification');
@@ -72,6 +72,129 @@ function updateRecentChoices(choice: string) {
         recentChoices = recentChoices.slice(0, MAX_RECENT_CHOICES);
     }
     my_context.globalState.update(RECENT_CHOICES_KEY, recentChoices);
+}
+
+interface PathQuickPickItem extends QuickPickItem {
+    fullPath: string;
+    isDirectory: boolean;
+    alwaysShow?: boolean;
+}
+
+export async function pickFile(startPath?: string): Promise<string | undefined> {
+    const quickPick = window.createQuickPick<PathQuickPickItem>();
+    quickPick.placeholder = 'Type a path; select a directory to enter it, or a file to pick it';
+    quickPick.matchOnDescription = false;
+    quickPick.matchOnDetail = false;
+
+    let basePath = startPath
+        ?? workspace.workspaceFolders?.[0].uri.fsPath
+        ?? path.parse(process.cwd()).root;
+
+    // initialize
+    quickPick.value = basePath + path.sep;
+    await updateItems(quickPick.value);
+
+    quickPick.onDidChangeValue(async (value) => {
+        await updateItems(value);
+    });
+
+    const selection = await new Promise<PathQuickPickItem | undefined>(resolve => {
+        quickPick.onDidAccept(async () => {
+            const sel = quickPick.selectedItems[0];
+            if (!sel) {
+                return; // nothing selected
+            }
+
+            if (sel.isDirectory) {
+                // drill into directory
+                quickPick.value = sel.fullPath + path.sep;
+                await updateItems(quickPick.value);
+            } else {
+                // file picked → done
+                resolve(sel);
+                quickPick.hide();
+            }
+        });
+
+        quickPick.onDidHide(() => resolve(undefined));
+        quickPick.show();
+    });
+
+    return selection?.fullPath;
+
+    // ——— helpers ———
+    async function updateItems(input: string) {
+        const sep = path.sep;
+        let dir: string;
+        let fragment: string;
+
+        if (input.endsWith(sep)) {
+            // “/foo/bar/” → strip trailing slash for filesystem call,
+            // but keep dir=/foo/bar and fragment="" so we list *all* children
+            dir = input.slice(0, -1);
+            fragment = '';
+        } else {
+            // “/foo/bar/Ba” → split at last slash
+            const idx = input.lastIndexOf(sep);
+            if (idx >= 0) {
+                dir = input.slice(0, idx);
+                fragment = input.slice(idx + 1);
+            } else {
+                // no slash at all → stay in basePath (your starting folder)
+                dir = basePath;
+                fragment = input;
+            }
+        }
+
+        // make `dir` absolute if the user typed something relative
+        if (!path.isAbsolute(dir)) {
+            dir = path.join(basePath, dir);
+        }
+
+        basePath = dir;  // so that “foo.txt” after no‑slash will use the correct folder
+
+        try {
+            const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+            var items = [];
+            for (var entry of entries.filter(e => e.name.startsWith(fragment))) {
+                const isDirectory = entry.isDirectory();
+                const name = entry.name
+                const fullPath = path.join(dir, name);
+                const item = {
+                    label: name + (isDirectory ? sep : ''),
+                    description: isDirectory ? 'Directory' : 'Application Executable',
+                    fullPath: fullPath,
+                    isDirectory: isDirectory,
+                    alwaysShow: true
+                }
+                if (isDirectory) {
+                    items.push(item);
+                }
+                else {
+                    if (name.endsWith('-opt') || name.endsWith('-dbg') || name.endsWith('-devel') || name.endsWith('-oprof')) {
+                        try {
+                            // check if item is executable
+                            fs.accessSync(fullPath, fs.constants.X_OK);
+                            items.unshift(item);
+                        }
+                        catch (err) { continue; }
+                    }
+                }
+            }
+
+            // add ..
+            items.unshift({
+                label: '..',
+                description: 'Parent',
+                fullPath: path.join(dir, '..'),
+                isDirectory: true,
+                alwaysShow: true
+            } as PathQuickPickItem);
+            quickPick.items = items;
+        } catch {
+            quickPick.items = [];
+        }
+    }
 }
 
 async function pickServer() {
@@ -181,14 +304,10 @@ async function pickServer() {
 
             // otherwise start a server
             if (result.label == 'Open File...') {
-                const fileUri = await window.showOpenDialog({
-                    canSelectFiles: true,
-                    canSelectMany: false,
-                    filters: {}
-                });
+                const filePath = await pickFile();
 
-                if (fileUri && fileUri[0]) {
-                    lastExecutablePick = fileUri[0].fsPath;
+                if (filePath) {
+                    lastExecutablePick = filePath;
                 } else {
                     lastExecutablePick = undefined;
                     return;
@@ -209,7 +328,7 @@ async function pickServer() {
 
     // build server options
     let ls_args = ['--language-server'];
-    const config_test_objects = workspace.getConfiguration('languageServerMoose').get<bool>("allowTestObjects");
+    const config_test_objects = workspace.getConfiguration('languageServerMoose').get<boolean>("allowTestObjects");
     if (config_test_objects) {
         ls_args.push('--allow-test-objects')
     }

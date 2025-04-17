@@ -236,6 +236,7 @@
 	},
 	"dependencies": {
 		"@vscode/test-electron": "^2.3.4",
+		"@vscode/vsce": "^3.2.2",
 		"date-fns": "^3.3.1",
 		"vscode-jsonrpc": "^8.2.0",
 		"vscode-languageclient": "^9.0.1"
