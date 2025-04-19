@@ -72,6 +72,12 @@ none
 
 ## Release Notes
 
+### 1.5.1
+Add icons for folders and MOOSE application executables, add last modified time.
+
+### 1.5.0
+Custom dialog for choosing an arbitrary MOOSE application executable.
+
 ### 1.4.2
 Do not prompt the user at all if the `MOOSE_LANGUAGE_SERVER` environment variable is set.
 

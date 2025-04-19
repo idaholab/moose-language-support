@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as process from 'process';
 import * as path from 'path';
 import { formatDistance } from 'date-fns';
-import { window, commands, workspace, ExtensionContext, Disposable, QuickPickItem, QuickPickItemKind, Uri, TextDocument, FileType } from 'vscode';
+import { window, commands, workspace, ExtensionContext, Disposable, QuickPickItem, QuickPickItemKind, Uri, TextDocument, FileType, ThemeIcon } from 'vscode';
 
 import {
     LanguageClient,
@@ -160,12 +160,14 @@ export async function pickFile(startPath?: string): Promise<string | undefined> 
                 const isDirectory = entry.isDirectory();
                 const name = entry.name
                 const fullPath = path.join(dir, name);
+                let stat = fs.statSync(fullPath);
                 const item = {
                     label: name + (isDirectory ? sep : ''),
-                    description: isDirectory ? 'Directory' : 'Application Executable',
+                    description: isDirectory ? '' : 'Last updated ' + formatDistance(stat.mtime, new Date(), { addSuffix: true }),
                     fullPath: fullPath,
                     isDirectory: isDirectory,
-                    alwaysShow: true
+                    alwaysShow: true,
+                    iconPath: isDirectory ? ThemeIcon.Folder : new ThemeIcon('sparkle'),
                 }
                 if (isDirectory) {
                     items.push(item);
@@ -188,7 +190,8 @@ export async function pickFile(startPath?: string): Promise<string | undefined> 
                 description: 'Parent',
                 fullPath: path.join(dir, '..'),
                 isDirectory: true,
-                alwaysShow: true
+                alwaysShow: true,
+                iconPath: ThemeIcon.Folder
             } as PathQuickPickItem);
             quickPick.items = items;
         } catch {
