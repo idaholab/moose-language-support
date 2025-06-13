@@ -11,7 +11,7 @@
       "include": "#comments"
     },
     {
-      "match": "(\\[)(Adaptivity|Bounds|Mesh|MeshDivisions|MeshGenerators|MeshModifiers|Kernels|AuxKernels|ScalarKernels|AuxScalarKernels|Variables|AuxVariables|Materials|FunctorMaterials|Postprocessors|BCs|ICs|Executioner|Executors|Outputs|Problem|Physics|Debug|Preconditioning|UserObjects|Functions|GlobalParams|VectorPostprocessors|Dampers|DiracKernels|DGKernels|Constraints|NodalNormals|CoupledProblems|DeprecatedBlock|MultiApps|Transfers|InterfaceKernels|NodalKernels|Controls|Modules|Positions|Times|FluidProperties|SolidProperties|Closures|Components|ControlLogic|FVBCs|FVKernels|FVInterfaceKernels|Distributions|Likelihood|Samplers|Surrogates|VariableMappings|Reporters|OptimizationReporter|Splits|RayBCs|RayKernels)(\\])",
+      "match": "(\\[)(ActionComponents|Adaptivity|Bounds|Components|Convergence|Mesh|MeshDivisions|MeshGenerators|MeshModifiers|Kernels|AuxKernels|ScalarKernels|AuxScalarKernels|Variables|AuxVariables|Materials|FunctorMaterials|Postprocessors|BCs|ICs|Executioner|Executors|Outputs|Problem|Physics|Debug|Preconditioning|UserObjects|Functions|GlobalParams|VectorPostprocessors|Dampers|DiracKernels|DGKernels|Constraints|NodalNormals|CoupledProblems|DeprecatedBlock|MultiApps|Transfers|InterfaceKernels|NodalKernels|Controls|Modules|Positions|Times|FluidProperties|SolidProperties|Closures|Components|ControlLogic|FVBCs|FVKernels|FVInterfaceKernels|LinearFVKernels|LinearFVBCs|HDGKernels|Distributions|Likelihood|Samplers|Surrogates|VariableMappings|Reporters|OptimizationReporter|Splits|RayBCs|RayKernels)(\\])",
       "captures": {
         "2": {
           "name": "keyword.control.moose"
@@ -19,7 +19,7 @@
       }
     },
     {
-      "match": "\\[(\\.\\/)(TimeStepper|TimeSteppers|TimePeriods|Quadrature|Predictor|Adaptivity|Indicators|Markers|Periodic|InitialCondition|MortarInterfaces|Partitioner)\\]",
+      "match": "\\[(\\.\\/)(TimeIntegrator|TimeIntegrators|TimeStepper|TimeSteppers|TimePeriods|Quadrature|Predictor|Adaptivity|Indicators|Markers|Periodic|InitialCondition|MortarInterfaces|Partitioner)\\]",
       "captures": {
         "1": {
           "name": "moose"
@@ -236,7 +236,7 @@
     "output_on": {
       "patterns": [
         {
-          "match": "(?i)\\b(none|initial|linear|nonlinear|timestep_end|timestep_begin|final|failed|custom)\\b",
+          "match": "(?i)\\b(none|initial|linear|nonlinear|timestep_end|timestep_begin|transfer|final|failed|custom)\\b",
           "name": "constant.language.moose"
         }
       ]
@@ -244,7 +244,7 @@
     "execute_on": {
       "patterns": [
         {
-          "match": "(?i)\\b(none|initial|linear|nonlinear|timestep_end|timestep_begin|multiapp_fixed_point_begin|multiapp_fixed_point_begin|final|custom|always|forward|adjoint)\\b",
+          "match": "(?i)\\b(none|initial|linear|linear_convergence|nonlinear|nonlinear_convergence|timestep_end|timestep_begin|multiapp_fixed_point_begin|multiapp_fixed_point_begin|transfer|final|custom|always|forward|homogeneous_forward|adjoint|adjoint_timestep_begin|adjoint_timestep_end|post_adaptivity|postcheck|xfem_mark)\\b",
           "name": "constant.language.moose"
         }
       ]
