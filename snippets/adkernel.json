@@ -1,12 +1,12 @@
 {
   "MOOSE AD kernel header": {
     "prefix": "adkernel-h",
-    "body": "#pragma once\n\n#include \"ADKernel.h\"\n\n/**\n *\n */\ntemplate <ComputeStage compute_stage>\nclass ${1} : public ADKernel<compute_stage>\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  virtual ADResidual computeQpResidual() override;\n\n  usingKernelMembers;\n};",
+    "body": "#pragma once\n\n#include \"ADKernel.h\"\n\n/**\n *\n */\nclass ${1} : public ADKernel\n{\npublic:\n  static InputParameters validParams();\n\n  ${1}(const InputParameters & parameters);\n\nprotected:\n  ADReal computeQpResidual() override;\n};",
     "description": "MOOSE AD kernel header"
   },
   "MOOSE AD kernel implementation": {
     "prefix": "adkernel-c",
-    "body": "#include \"${1}.h\"\n\nregisterADMooseObject(\"${2:AppName}App\", ${1});\n\ntemplate <ComputeStage compute_stage>\nInputParameters\n${1}<compute_stage>::validParams()\n{\n  auto params = ADKernel<compute_stage>::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\ntemplate <ComputeStage compute_stage>\n${1}<compute_stage>::${1}(const InputParameters & parameters)\n  : ADKernel<compute_stage>(parameters)\n{\n}\n\ntemplate <ComputeStage compute_stage>\nADResidual\n${1}<compute_stage>::computeQpResidual()\n{\n}\n\nadBaseClass(${1});",
+    "body": "#include \"${1}.h\"\n\nregisterMooseObject(\"${2:AppName}App\", ${1});\n\nInputParameters\n${1}::validParams()\n{\n  InputParameters params = ADKernel::validParams();\n  params.addClassDescription(\"\");\n  return params;\n}\n\n${1}::${1}(const InputParameters & parameters) : ADKernel(parameters) {}\n\nADReal\n${1}::computeQpResidual()\n{\n}",
     "description": "MOOSE AD kernel implementation"
   }
 }
